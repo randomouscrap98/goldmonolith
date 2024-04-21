@@ -22,3 +22,5 @@ go.work
 
 # My stuff
 ignore/
+*.toml
+cmd

@@ -57,12 +57,13 @@ func main() {
 
 	r := chi.NewRouter()
 
-	r.Mount("/webstream", webstream.GetHandler())
-
 	r.Use(middleware.Logger)
 	//r.Use(middleware.Timeout(time.Duration(config.Timeout)))
 	r.Use(proxy.ForwardedHeaders())
 	//r.Use(httprate.LimitByIP(config.RateLimitCount, time.Duration(config.RateLimitInterval)))
+
+	r.Mount("/webstream", webstream.GetHandler())
+
 	s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", config.Port),
 		Handler: r,

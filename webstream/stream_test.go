@@ -3,10 +3,13 @@ package webstream
 import (
 	"bytes"
 	"context"
-	//"log"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
-	//"time"
-	//"fmt"
+	"time"
+	//"log"
 )
 
 const (
@@ -56,6 +59,32 @@ func (tb *TestBacker) Read(name string) ([]byte, error) {
 	return data, nil
 }
 
+func (tb *TestBacker) Exists(name string) bool {
+	_, ok := tb.Rooms[name]
+	return ok
+}
+
+func randomFolder(name string) string {
+	folder := filepath.Join("ignore", fmt.Sprintf("%s_%s",
+		strings.Replace(time.Now().UTC().Format(time.RFC3339), ":", "", -1),
+		name,
+	))
+	os.MkdirAll(folder, 0750)
+	return folder
+}
+
+func reasonableConfig(name string) *Config {
+	return &Config{
+		StreamFolder:    randomFolder(name),
+		TotalRoomLimit:  10,
+		SingleDataLimit: 500,
+		StreamDataLimit: 1000,
+		RoomRegex:       "^[a-zA-Z0-9-]{5,256}$",
+	}
+}
+
+// ---- Now the actual tests ------
+
 func TestWebstreamInitial(t *testing.T) {
 	// Just want to create a webstream. Need a backer...
 	backer := NewTestBacker()
@@ -74,9 +103,7 @@ func TestWebstreamInitial(t *testing.T) {
 	}
 }
 
-func TestWebstreamSimple(t *testing.T) {
-	backer := NewTestBacker()
-	ws := NewWebStream("junk", backer)
+func basicStreamTest(t *testing.T, ws *WebStream) []byte {
 	sendData := []byte("Yes indeed!")
 	err := ws.AppendData(sendData)
 	if err != nil {
@@ -94,8 +121,7 @@ func TestWebstreamSimple(t *testing.T) {
 		t.Fatalf("Read and write not equivalent! %s vs %s\n", string(data), string(sendData))
 	}
 	// Make sure it hasn't written it back yet
-	backdat := backer.Rooms["junk"]
-	if len(backdat) > 0 {
+	if ws.Backer.Exists("junk") {
 		t.Fatalf("Backing data written before requested\n")
 	}
 	err = ws.DumpStream(false)
@@ -105,7 +131,10 @@ func TestWebstreamSimple(t *testing.T) {
 	if len(ws.stream) == 0 || cap(ws.stream) == 0 {
 		t.Fatalf("Stream reset on dump incorrectly!\n")
 	}
-	backdat = backer.Rooms["junk"]
+	backdat, err := ws.Backer.Read("junk") //backer.Rooms["junk"]
+	if err != nil {
+		t.Fatalf("Error reading backing: %s\n", err)
+	}
 	if !bytes.Equal(backdat, sendData) {
 		t.Fatalf("Backing and send not equivalent! %s vs %s\n", string(backdat), string(sendData))
 	}
@@ -121,9 +150,16 @@ func TestWebstreamSimple(t *testing.T) {
 	if length != len(sendData) {
 		t.Fatalf("Length cleared incorrectly")
 	}
+	return sendData
+}
+
+func TestWebstreamSimple(t *testing.T) {
+	backer := NewTestBacker()
+	ws := NewWebStream("junk", backer)
+	sendData := basicStreamTest(t, ws)
 	eventLength := len(backer.Events)
 	// Reading should still get us the data, it'll be refreshed
-	data, err = ws.ReadData(0, -1, context.Background())
+	data, err := ws.ReadData(0, -1, context.Background())
 	if err != nil {
 		t.Fatalf("Got error during read after dump: %s\n", err)
 	}
@@ -134,4 +170,10 @@ func TestWebstreamSimple(t *testing.T) {
 	if newEventLength != eventLength+1 {
 		t.Fatalf("Somehow, read event not performed\n")
 	}
+}
+
+func TestWebstreamFileSimple(t *testing.T) {
+	backer := &WebStreamBacker_File{Config: reasonableConfig("testfilesimple")}
+	ws := NewWebStream("junk", backer)
+	_ = basicStreamTest(t, ws)
 }

@@ -14,11 +14,8 @@ import (
 type WebStreamBacker interface {
 	Write(string, []byte) error
 	Read(string) ([]byte, error)
+	Exists(string) bool
 }
-
-// func ExpectedBaseBuffer(length int) []byte {
-//   return make([]byte, ) // This may change in the future...
-// }
 
 // A webstream is a chunk of preallocated memory that can be read from and appended to.
 // This webstream understands that it is backed by a file, and that it is possible to

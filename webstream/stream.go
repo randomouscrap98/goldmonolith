@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 )
 
 // Streams are in-memory for maximum performance and minimum complexity.
@@ -24,6 +25,7 @@ type WebStream struct {
 	readSignal chan struct{}
 	length     int
 	listeners  int
+	lastWrite  time.Time
 	Name       string
 	Backer     WebStreamBacker
 }
@@ -41,6 +43,13 @@ func (ws *WebStream) GetListenerCount() int {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	return ws.listeners
+}
+
+func (ws *WebStream) GetLastWrite() time.Time {
+	// Do we REALLY need to lock on this? IDK...
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	return ws.lastWrite
 }
 
 // Append the given data to this stream. Will throw an error if the
@@ -61,6 +70,7 @@ func (ws *WebStream) AppendData(data []byte) error {
 	}
 	copy(ws.stream[ws.length:], data)
 	ws.length += len(data)
+	ws.lastWrite = time.Now()
 	close(ws.readSignal)
 	ws.readSignal = make(chan struct{})
 	return nil

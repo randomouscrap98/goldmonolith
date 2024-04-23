@@ -21,10 +21,26 @@ type WebStreamBacker interface {
 type WebStream struct {
 	stream     []byte
 	mu         sync.Mutex
-	readSignal chan int
+	readSignal chan struct{}
 	length     int
+	listeners  int
 	Name       string
 	Backer     WebStreamBacker
+}
+
+func NewWebStream(name string, backer WebStreamBacker) *WebStream {
+	return &WebStream{
+		Name:       name,
+		Backer:     backer,
+		readSignal: make(chan struct{}),
+	}
+}
+
+func (ws *WebStream) GetListenerCount() int {
+	// Do we REALLY need to lock on this? IDK...
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	return ws.listeners
 }
 
 // Append the given data to this stream. Will throw an error if the
@@ -45,6 +61,8 @@ func (ws *WebStream) AppendData(data []byte) error {
 	}
 	copy(ws.stream[ws.length:], data)
 	ws.length += len(data)
+	close(ws.readSignal)
+	ws.readSignal = make(chan struct{})
 	return nil
 }
 
@@ -57,12 +75,27 @@ func (ws *WebStream) ReadData(start, length int, cancel context.Context) ([]byte
 		return nil, fmt.Errorf("start must be non-zero")
 	}
 	ws.mu.Lock()
+	// This should "just work" to give a relatively accurate listener count
+	ws.listeners += 1
+	defer func() { ws.listeners -= 1 }()
 	// In this special situation, we must simply wait until the data becomes available.
 	// It is also OK if the data is not currently backed, since we're just waiting on
 	// a signal and not actually reading anything.
 	if start >= ws.length {
+		// We're still locked at this point, so we know nobody is changing this out
+		// from under us
+		waiter := ws.readSignal
 		ws.mu.Unlock()
-		//TODO: what the hell is this supposed to do
+		// But now the waiter could be in any state, which... should be fine?
+		select {
+		case <-waiter:
+			// We were signalled
+			return ws.ReadData(start, length, cancel)
+		case <-cancel.Done():
+			// We were killed
+			return nil, cancel.Err()
+		}
+		// We should always exit this if statement with a return...
 	}
 	// If we get here, we know that we have data to read. Data can only ever grow
 	// (also we're in a lock so we know the length is static at this point).

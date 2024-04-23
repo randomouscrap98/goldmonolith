@@ -9,15 +9,41 @@ import (
 	"sync"
 )
 
+type WebStreamBacker interface {
+	WriteBack(string, []byte) error
+	ReadTo(string, []byte) error
+}
+
 // A webstream is a chunk of preallocated memory that can be read from and appended to.
 // This webstream understands that it is backed by a file, and that it is possible to
 // remove the memory while still functioning
 type WebStream struct {
-	stream      []byte
-	mu          sync.Mutex
-	length      int64
-	Capacity    int64
-	BackingFile string
+	stream     []byte
+	mu         sync.Mutex
+	readSignal chan int
+	length     int64
+	Capacity   int64
+	Name       string
+	//BackingFile string
+}
+
+func (ws *WebStream) WriteData(data []byte) error {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	if int64(len(data))+ws.length > ws.Capacity {
+		return fmt.Errorf("data overflows capacity: %d", ws.Capacity)
+	}
+	// Data MUST be available, do a refresh
+	refreshed, err := ws.refreshStream()
+	if err != nil {
+		return err
+	}
+	if refreshed {
+		log.Printf("Write for %s at %d+%d refreshed backing stream\n", ws.BackingFile, ws.length, len(data))
+	}
+	copy(ws.stream[ws.length:], data)
+	ws.length += int64(len(data))
+	return nil
 }
 
 // This function will safely read from the given webstream, blocking if
@@ -44,7 +70,7 @@ func (ws *WebStream) ReadData(start, length int64, cancel context.Context) ([]by
 		return nil, err
 	}
 	if refreshed {
-		log.Printf("Read for %d+%d refreshed backing stream\n", start, length)
+		log.Printf("Read for %s at %d+%d refreshed backing stream\n", ws.BackingFile, start, length)
 	}
 	// The previous service changed the length to fit within the bounds, so a read
 	// near the end with some ridiculous length would only returrn up to the end of the stream.
@@ -63,7 +89,7 @@ func (ws *WebStream) refreshStream() (bool, error) {
 	if cap(ws.stream) > 0 {
 		return false, nil
 	}
-	backing, err := os.Open(ws.BackingFile) //ws.StreamBacker()
+	backing, err := os.Open(ws.BackingFile)
 	if err != nil {
 		return false, err
 	}
@@ -107,5 +133,3 @@ func (ws *WebStream) DumpStream(clear bool) error {
 	}
 	return nil
 }
-
-//func

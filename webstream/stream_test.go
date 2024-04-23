@@ -1,6 +1,8 @@
 package webstream
 
 import (
+	"bytes"
+	"context"
 	"testing"
 	//"time"
 	//"fmt"
@@ -59,5 +61,19 @@ func TestWebstreamInitial(t *testing.T) {
 	}
 	if !ws.GetLastWrite().IsZero() {
 		t.Errorf("Nonzero last write!")
+	}
+}
+
+func TestWebstreamSimple(t *testing.T) {
+	backer := NewTestBacker()
+	ws := NewWebStream("junk", backer)
+	sendData := []byte("Yes indeed!")
+	ws.AppendData(sendData)
+	data, err := ws.ReadData(0, -1, context.Background())
+	if err != nil {
+		t.Fatalf("Got error during read: %s\n", err)
+	}
+	if !bytes.Equal(sendData, data) {
+		t.Fatalf("Read and write not equivalent!\n")
 	}
 }

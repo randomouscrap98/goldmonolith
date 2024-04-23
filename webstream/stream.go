@@ -16,6 +16,10 @@ type WebStreamBacker interface {
 	Read(string) ([]byte, error)
 }
 
+// func ExpectedBaseBuffer(length int) []byte {
+//   return make([]byte, ) // This may change in the future...
+// }
+
 // A webstream is a chunk of preallocated memory that can be read from and appended to.
 // This webstream understands that it is backed by a file, and that it is possible to
 // remove the memory while still functioning
@@ -52,6 +56,13 @@ func (ws *WebStream) GetLastWrite() time.Time {
 	return ws.lastWrite
 }
 
+func (ws *WebStream) GetLength() int {
+	// Do we REALLY need to lock on this? IDK...
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	return ws.length
+}
+
 // Append the given data to this stream. Will throw an error if the
 // stream overflows the capacity
 func (ws *WebStream) AppendData(data []byte) error {
@@ -68,8 +79,9 @@ func (ws *WebStream) AppendData(data []byte) error {
 	if len(data)+ws.length > cap(ws.stream) {
 		return fmt.Errorf("data overflows capacity: %d", cap(ws.stream))
 	}
-	copy(ws.stream[ws.length:], data)
-	ws.length += len(data)
+	ws.stream = ws.stream[:ws.length+len(data)] // Embiggen
+	copy(ws.stream[ws.length:], data)           // we don't use append because we specifically do not want it to grow ever
+	ws.length = len(ws.stream)
 	ws.lastWrite = time.Now()
 	close(ws.readSignal)
 	ws.readSignal = make(chan struct{})

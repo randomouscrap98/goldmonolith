@@ -37,19 +37,23 @@ func (wb *WebStreamBacker_File) Write(name string, data []byte) error {
 func (wb *WebStreamBacker_File) Read(name string) ([]byte, error) {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
+	//gen := func() []byte { return make([]byte, 0, wb.Config.StreamDataLimit) } // Create the WHOLE THING. This may change...
 	backing, err := os.Open(wb.fpath(name))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			// This is normal: we don't want a non-existent file to throw an error,
 			// just let the caller think they have something...
-			return make([]byte, 0, wb.Config.StreamDataLimit), nil
+			return make([]byte, 0, wb.Config.StreamDataLimit), nil //gen(), nil
 		}
 		return nil, err
 	}
 	defer backing.Close()
 	length, err := backing.Seek(0, io.SeekEnd)
-	stream := make([]byte, length, wb.Config.StreamDataLimit)
-	_, err = io.ReadFull(backing, stream)
+	if err != nil {
+		return nil, err
+	}
+	stream := make([]byte, length, wb.Config.StreamDataLimit) //gen()
+	_, err = io.ReadFull(backing, stream)                     //[:length])
 	if err != nil {
 		return nil, err
 	}

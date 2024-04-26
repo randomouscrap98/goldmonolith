@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	//"log"
@@ -14,6 +15,7 @@ import (
 
 const (
 	DefaultCapacity = 1000
+	GoroutineWait   = time.Millisecond
 )
 
 // The beginning is all the test rigging and whatever. Don't
@@ -176,4 +178,83 @@ func TestWebstreamFileSimple(t *testing.T) {
 	backer := &WebStreamBacker_File{Config: reasonableConfig("testfilesimple")}
 	ws := NewWebStream("junk", backer)
 	_ = basicStreamTest(t, ws)
+}
+
+func basicReadRoutine(t *testing.T, ws *WebStream, count int, offset int) {
+	sendData := []byte("Yes indeed!")
+	threadRead := make([][]byte, count)
+	threadLock := make([]sync.Mutex, count)
+	threadErr := make([]error, count)
+	for i := range count {
+		go func(index int) {
+			tempRead, err := ws.ReadData(offset, -1, context.Background())
+			threadLock[index].Lock()
+			defer threadLock[index].Unlock()
+			threadRead[index] = tempRead
+			threadErr[index] = err
+		}(i)
+		time.Sleep(GoroutineWait)
+	}
+	// So, after a short bit, the reader should still be sitting around
+	listenCount := ws.GetListenerCount()
+	if listenCount != count {
+		t.Fatalf("Listeners not registered! Expected %d, got %d\n", count, listenCount)
+	}
+	for i := range count {
+		threadLock[i].Lock()
+		if threadRead[i] != nil {
+			t.Fatalf("The read thread didn't block on empty!\n")
+		}
+		threadLock[i].Unlock()
+	}
+	// Now, we send data. The reader should get unblocked
+	err := ws.AppendData(sendData)
+	if err != nil {
+		t.Fatalf("Couldn't append data: %s\n", err)
+	}
+	time.Sleep(GoroutineWait * time.Duration(count))
+	// It should now be over
+	listenCount = ws.GetListenerCount()
+	if listenCount != 0 {
+		t.Fatalf("Listener still registered! Expected 0, got %d\n", listenCount)
+	}
+	for i := range count {
+		threadLock[i].Lock()
+		if threadErr[i] != nil {
+			t.Fatalf("Error while reading: %s\n", threadErr[i])
+		}
+		if !bytes.Equal(threadRead[i], sendData) {
+			t.Fatalf("Bytes read not the same as bytes written: %s vs %s\n", string(threadRead[i]), string(sendData))
+		}
+		threadLock[i].Unlock()
+	}
+}
+
+func TestWebstreamReadEmptyWait(t *testing.T) {
+	backer := NewTestBacker()
+	doRun := func(count int) {
+		ws := NewWebStream(fmt.Sprintf("junk%d", count), backer)
+		basicReadRoutine(t, ws, count, 0)
+	}
+	doRun(1)
+	doRun(2)
+	doRun(3)
+	doRun(10)
+}
+
+func TestWebstreamReadFilledWait(t *testing.T) {
+	backer := NewTestBacker()
+	doRun := func(count int) {
+		ws := NewWebStream(fmt.Sprintf("junk%d", count), backer)
+		// Write some data
+		junk := make([]byte, 55)
+		err := ws.AppendData(junk)
+		if err != nil {
+			t.Fatalf("Write junk data failed: %s\n", err)
+		}
+		basicReadRoutine(t, ws, count, 55)
+	}
+	doRun(1)
+	doRun(2)
+	doRun(5)
 }

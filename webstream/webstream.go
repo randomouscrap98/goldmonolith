@@ -41,11 +41,11 @@ func GetDefaultStreamQuery() *StreamQuery {
 // Result of a stream completion (often times the user only uses
 // the data portion)
 type StreamResult struct {
-	Data        string `schema:"data"`
-	Readonlykey string `schema:"readonlykey"`
-	Signalled   int    `schema:"signalled"`
-	Used        int    `schema:"used"`
-	Limit       int    `schema:"limit"`
+	Data        string `json:"data"`
+	Readonlykey string `json:"readonlykey"`
+	Signalled   int    `json:"signalled"`
+	Used        int    `json:"used"`
+	Limit       int    `json:"limit"`
 }
 
 // The constants you return from the /constants endpoint,

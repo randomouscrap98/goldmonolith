@@ -31,6 +31,11 @@ func (wb *WebStreamBacker_File) fpath(name string) string {
 func (wb *WebStreamBacker_File) Write(name string, data []byte) error {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
+	// Hopefully this isn't expensive...
+	err := os.MkdirAll(wb.Config.StreamFolder, 0750)
+	if err != nil {
+		return err
+	}
 	writer, err := os.Create(wb.fpath(name))
 	if err != nil {
 		return err

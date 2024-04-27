@@ -130,19 +130,15 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 		return nil, fmt.Errorf(RoomNameError)
 	}
 
-	//log.Printf("Got to GetStream\n")
-
 	ws := wc.GetStream(room)
 	rname := wc.obfuscator.GetObfuscatedKey(room)
 
-	// result := StreamResult{
-	// 	Signalled:   0,
-	// }
-
 	var cancel context.Context = nil
+	var cancelfunc context.CancelFunc = func() {}
 	if !query.Nonblocking {
-		cancel = r.Context()
+		cancel, cancelfunc = context.WithTimeout(r.Context(), time.Duration(wc.config.ReadTimeout))
 	}
+	defer cancelfunc()
 
 	rawdata, err := ws.ReadData(query.Start, query.Count, cancel)
 	if err != nil {
@@ -151,15 +147,15 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 		return nil, err
 	}
 
+	// Note: that "Signalled" count is very inaccurate, but it was inaccurate on the old
+	// c# system so I think it's fine
 	return &StreamResult{
 		Limit:       wc.config.StreamDataLimit,
 		Readonlykey: rname,
 		Data:        string(rawdata), // This is expensive I think??
-		Signalled:   ws.GetListenerCount(),
+		Signalled:   max(ws.GetListenerCount(), ws.GetLastWriteListenerCount()),
 		Used:        ws.GetLength(),
 	}, nil
-
-	//return &result, nil
 }
 
 func (wc *WebstreamContext) DumpStreams(force bool) {

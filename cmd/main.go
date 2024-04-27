@@ -129,12 +129,12 @@ func main() {
 	defer cancel()
 
 	r := initRouter(config)
-	//services := make([]WebService, 0)
-
-	mounts := make(map[string]func() (WebService, error))
-	mounts["/stream"] = func() (WebService, error) { return webstream.NewWebstreamContext(config.Webstream) }
 
 	var wg sync.WaitGroup
+	mounts := make(map[string]func() (WebService, error))
+
+	// --- Which services to host ----
+	mounts["/stream"] = func() (WebService, error) { return webstream.NewWebstreamContext(config.Webstream) }
 
 	// --- Host all services ---
 	for k, f := range mounts {
@@ -147,14 +147,6 @@ func main() {
 		service.RunBackground(ctx, &wg)
 		log.Printf("Mounted service at %s", k)
 	}
-
-	// // --- Webstream -----
-	// webctx, err := webstream.NewWebstreamContext(config.Webstream)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// services = append(services, webctx)
-	// r.Mount("/stream", webctx.GetHandler())
 
 	// --- Static files -----
 	staticPath, err := filepath.Abs(config.StaticFiles)

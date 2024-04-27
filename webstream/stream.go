@@ -21,14 +21,15 @@ type WebStreamBacker interface {
 // This webstream understands that it is backed by a file, and that it is possible to
 // remove the memory while still functioning
 type WebStream struct {
-	stream     []byte
-	mu         sync.Mutex
-	readSignal chan struct{}
-	length     int
-	listeners  int
-	lastWrite  time.Time
-	Name       string
-	Backer     WebStreamBacker
+	stream             []byte
+	mu                 sync.Mutex
+	readSignal         chan struct{}
+	length             int
+	listeners          int
+	lastWrite          time.Time
+	lastWriteListeners int // Count of listeners at last signal (write)
+	Name               string
+	Backer             WebStreamBacker
 }
 
 func NewWebStream(name string, backer WebStreamBacker) *WebStream {
@@ -44,6 +45,13 @@ func (ws *WebStream) GetListenerCount() int {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	return ws.listeners
+}
+
+func (ws *WebStream) GetLastWriteListenerCount() int {
+	// Do we REALLY need to lock on this? IDK...
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	return ws.lastWriteListeners
 }
 
 func (ws *WebStream) GetLastWrite() time.Time {
@@ -80,6 +88,7 @@ func (ws *WebStream) AppendData(data []byte) error {
 	copy(ws.stream[ws.length:], data)           // we don't use append because we specifically do not want it to grow ever
 	ws.length = len(ws.stream)
 	ws.lastWrite = time.Now()
+	ws.lastWriteListeners = ws.listeners
 	close(ws.readSignal)
 	ws.readSignal = make(chan struct{})
 	return nil
@@ -106,14 +115,16 @@ func (ws *WebStream) ReadData(start, length int, cancel context.Context) ([]byte
 			// from under us
 			waiter := ws.readSignal
 			ws.mu.Unlock()
+			// Need a timeout for reading before we return empty data
+			//timeout, cancel := context.WithTimeout(context.Background(), time.Duration(ws))
 			// But now the waiter could be in any state, which... should be fine?
 			select {
 			case <-waiter:
 				// We were signalled
 				return ws.ReadData(start, length, cancel)
 			case <-cancel.Done():
-				// We were killed
-				return nil, cancel.Err()
+				// We were killed, but we DON'T throw the error? Is that OK??
+				return nil, nil //cancel.Err()
 			}
 			// We should always exit this if statement with a return...
 		} else {

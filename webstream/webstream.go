@@ -210,20 +210,29 @@ func GetHandler(webctx *WebstreamContext) http.Handler {
 	})
 
 	r.Post("/{room}", func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, int64(webctx.config.SingleDataLimit))
+		// config.SimpleFormLimit))
 		room := chi.URLParam(r, "room")
 		if !webctx.roomRegex.MatchString(room) {
 			http.Error(w, RoomNameError, http.StatusBadRequest)
 			return
 		}
-		// Even though the
+		// We're safe to just "read all" since we've limited the body above
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			log.Printf("Read POST body error for room %s: %s\n", err)
+			log.Printf("Read POST body error for room %s: %s\n", room, err)
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
 		ws := webctx.GetStream(room)
-		ws.AppendData(data)
+		err = ws.AppendData(data)
+		if err != nil {
+			log.Printf("Append error for room %s: %s\n", room, err)
+			// This COULD be because the room is full, we should show the error
+			// (even if it might expose some sensitive info... whatever)
+			http.Error(w, fmt.Sprintf("Couldn't append to room: %s", err), http.StatusBadRequest)
+			return
+		}
 	})
 
 	return r

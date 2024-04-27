@@ -2,6 +2,8 @@ package webstream
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -13,6 +15,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/gorilla/schema"
+)
+
+const (
+	RoomNameError = "Room name has invalid characters! Try something simpler!"
 )
 
 // Query the user sends in to get parts of a stream or whatever
@@ -110,9 +116,11 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	if !wc.roomRegex.MatchString(room) {
-		http.Error(w, "Room name has invalid characters! Try something simpler!", http.StatusBadRequest)
-		return nil, err
+		http.Error(w, RoomNameError, http.StatusBadRequest)
+		return nil, fmt.Errorf(RoomNameError)
 	}
+
+	//log.Printf("Got to GetStream\n")
 
 	ws := wc.GetStream(room)
 	rname := wc.obfuscator.GetObfuscatedKey(room)
@@ -142,47 +150,80 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 	return &result, nil
 }
 
-func (wc *WebstreamContext) DumpStreams() {
+func (wc *WebstreamContext) DumpStreams(force bool) {
 	wc.wslock.Lock()
 	defer wc.wslock.Unlock()
 	for k, v := range wc.webstreams {
-		if time.Now().Sub(v.GetLastWrite()) > time.Duration(wc.config.IdleRoomTime) {
-			_, err := v.DumpStream(true)
+		if force || time.Now().Sub(v.GetLastWrite()) > time.Duration(wc.config.IdleRoomTime) {
+			ok, err := v.DumpStream(true)
 			if err != nil {
 				// A warning is about all we can do...
 				log.Printf("WARN: Error saving webstream %s: %s\n", k, err)
+			}
+			if ok {
+				log.Printf("Dumped room %s to filesystem\n", k)
 			}
 		}
 	}
 }
 
-func GetHandler(config *Config) http.Handler {
-	webctx, err := NewWebstreamContext(config)
-	if err != nil {
-		panic(err)
-	}
+func (wc *WebstreamContext) RunBackground(cancel context.Context) {
+	go func() {
+		ticker := time.NewTicker(time.Duration(wc.config.IdleRoomTime))
+		defer ticker.Stop()
+		for {
+			select {
+			case <-cancel.Done():
+				log.Printf("Webstream background cancelled, exiting")
+				wc.DumpStreams(true) // SUPER IMPORTANT!
+				return
+			case <-ticker.C:
+				wc.DumpStreams(false)
+			}
+		}
+	}()
+}
 
+func GetHandler(webctx *WebstreamContext) http.Handler {
 	r := chi.NewRouter()
 
 	r.Get("/constants", func(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, StreamConstants{
-			MaxStreamSize:  config.StreamDataLimit,
-			MaxSingleChunk: config.SingleDataLimit,
+			MaxStreamSize:  webctx.config.StreamDataLimit,
+			MaxSingleChunk: webctx.config.SingleDataLimit,
 		})
 	})
 
-	r.Get("{room}", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/{room}", func(w http.ResponseWriter, r *http.Request) {
 		result, err := webctx.GetStreamResult(w, r)
+		//log.Printf("Result: %p\n", result)
 		if err == nil {
 			render.JSON(w, r, result.Data)
 		}
 	})
 
-	r.Get("{room}/json", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/{room}/json", func(w http.ResponseWriter, r *http.Request) {
 		result, err := webctx.GetStreamResult(w, r)
 		if err == nil {
 			render.JSON(w, r, result)
 		}
+	})
+
+	r.Post("/{room}", func(w http.ResponseWriter, r *http.Request) {
+		room := chi.URLParam(r, "room")
+		if !webctx.roomRegex.MatchString(room) {
+			http.Error(w, RoomNameError, http.StatusBadRequest)
+			return
+		}
+		// Even though the
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("Read POST body error for room %s: %s\n", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+		ws := webctx.GetStream(room)
+		ws.AppendData(data)
 	})
 
 	return r

@@ -1,8 +1,10 @@
 package webstream
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"sync"
 	"time"
@@ -62,7 +64,7 @@ func (ws *WebStream) GetLength() int {
 
 // Append the given data to this stream. Will throw an error if the
 // stream overflows the capacity
-func (ws *WebStream) AppendData(data []byte) error {
+func (ws *WebStream) AppendDataReader(reader io.Reader) error {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	// Data MUST be available, do a refresh
@@ -83,6 +85,10 @@ func (ws *WebStream) AppendData(data []byte) error {
 	close(ws.readSignal)
 	ws.readSignal = make(chan struct{})
 	return nil
+}
+
+func (ws *WebStream) AppendData(data []byte) error {
+	return ws.AppendDataReader(bytes.NewReader(data))
 }
 
 // This function will safely read from the given webstream, blocking if

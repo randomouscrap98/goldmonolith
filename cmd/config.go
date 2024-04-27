@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/randomouscrap98/goldmonolith/utils"
 	"github.com/randomouscrap98/goldmonolith/webstream"
 )
 
 type Config struct {
-	Port      int
-	Webstream *webstream.Config
+	Address      string            // Full address to host on (includes IP to limit to localhost/etc)
+	ShutdownTime utils.Duration    // Time to wait for server to shutdown
+	Webstream    *webstream.Config // Webstream specific config
 }
 
 func GetDefaultConfig_Toml() string {
 	return fmt.Sprintf(`# Config auto-generated on %s
-Port=5020               # Which port to run the server on
+Address=":5020"               # Where to run the server
+ShutdownTime="10s"            # How long to wait for the server to shutdown
 
 [Webstream]
 %s

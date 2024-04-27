@@ -6,12 +6,143 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ultra Simple Chat</title>
   <script>
+    var STREAMAPI = "../../stream/";
+    // Predefined dark colors
+    var USERNAMECOLORS = [
+      "darkblue", "darkgreen", "darkred", "blue",
+      "black", "darkgray", "brown", "darkmagenta",
+      "dodgerblue", "forestgreen", "green", "indigo",
+      "maroon", "olivedrab", "purple", "teal",
+    ];
+    function hashCode(str) {
+      let hash = 0;
+      for (let i = 0, len = str.length; i < len; i++) {
+        let chr = str.charCodeAt(i);
+        hash = (hash << 5) - hash + chr;
+        hash |= 0; // Convert to 32bit integer
+      }
+      return hash;
+    }
+    function usernameColor(username) {
+      //console.log(username, hashCode(username));
+      const index = hashCode(username) % USERNAMECOLORS.length;
+      return USERNAMECOLORS[index];
+    }
+    function appendError(error) {
+      var span = document.createElement('span');
+      span.textContent = error;
+      span.className = "error";
+      errors.appendChild(span);
+    }
+    function displayServerInfo() {
+      fetch(STREAMAPI + "constants")
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.text(); //json();
+        })
+        .then(data => {
+          serverinfo.textContent = data;
+        })
+        .catch(error => {
+          alert(`Can't connect to stream endpoint! Error: ${error}`);
+        });
+    }
+    function messageFromLine(line) {
+      var message = document.createElement("div");
+      message.className = "message";
+      var colonIndex = line.indexOf(":");
+      if (colonIndex != -1) {
+        var username = document.createElement("span");
+        var usernameText = line.slice(0, colonIndex + 1).trim();
+        username.className = "username";
+        username.textContent = usernameText;
+        username.style.color = usernameColor(usernameText);
+        message.appendChild(username);
+        var text = document.createElement("span");
+        text.className = "text";
+        text.textContent = line.slice(colonIndex + 1).trim();
+        message.appendChild(text);
+      }
+      else {
+        message.textContent = line;
+      }
+      return message;
+    }
+    function displayIncomingMessages(data) {
+      var lines = data.split("\n");
+      for (var i = 0; i < lines.length; i++) {
+        messages.insertBefore(messageFromLine(lines[i]), messages.firstChild);
+      }
+    }
+    function setupSender() {
+      chatform.onsubmit = function () {
+        var message = `${chatform_username.value}: ${chatform_message.value}\n`;
+        displayIncomingMessages(message);
+        chatform_message.value = "";
+      }
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+      var urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has("room")) {
+        displayServerInfo();
+        setupSender();
+      }
+      else {
+        appendError("Set a room using ?room=secretroomname. Choose something hard to guess!");
+      }
+    });
   </script>
+  <style>
+    body {
+      font-family: sans;
+    }
+
+    footer {
+      font-size: 0.8em;
+      color: #777;
+    }
+
+    #chatform {
+      display: flex;
+      flex-direction: column;
+      margin: 0.5em;
+      max-width: 40em;
+    }
+
+    #chatform textarea {
+      resize: vertical;
+      min-height: 5em;
+    }
+
+    .error {
+      color: darkred;
+    }
+
+    .username {
+      font-weight: bold;
+      margin-right: 0.5em;
+    }
+  </style>
 </head>
 
 <body>
-  <h1>Ultra Simple Chat</h1>
+  <h2>Ultra Simple Chat</h2>
   <hr />
+  <div id="errors"></div>
+  <form id="chatform" action="javascript:void(0);">
+    <input placeholder="Username" id="chatform_username" name="username" required>
+    <input placeholder="Message" id="chatform_message" name="message" required>
+    <input type="submit" value="Send">
+  </form>
+  <hr />
+  <div id="messages">
+  </div>
+  <hr />
+  <footer id="footer">
+    <span id="serverinfo"></span>
+  </footer>
 </body>
 
 </html>

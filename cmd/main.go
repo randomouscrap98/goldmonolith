@@ -135,7 +135,7 @@ func main() {
 		panic(err)
 	}
 	webctx.RunBackground(ctx)
-	r.Mount("/webstream", webstream.GetHandler(webctx))
+	r.Mount("/stream", webstream.GetHandler(webctx))
 
 	// --- Static files
 	staticPath, err := filepath.Abs(config.StaticFiles)

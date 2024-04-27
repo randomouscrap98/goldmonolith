@@ -62,7 +62,7 @@ func main() {
 	r.Use(proxy.ForwardedHeaders())
 	//r.Use(httprate.LimitByIP(config.RateLimitCount, time.Duration(config.RateLimitInterval)))
 
-	r.Mount("/webstream", webstream.GetHandler())
+	r.Mount("/webstream", webstream.GetHandler(config.Webstream))
 
 	s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", config.Port),

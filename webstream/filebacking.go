@@ -18,6 +18,12 @@ type WebStreamBacker_File struct {
 	Config *Config
 }
 
+func GetDefaultFileBacker(config *Config) *WebStreamBacker_File {
+	return &WebStreamBacker_File{
+		Config: config,
+	}
+}
+
 func (wb *WebStreamBacker_File) fpath(name string) string {
 	return filepath.Join(wb.Config.StreamFolder, name)
 }

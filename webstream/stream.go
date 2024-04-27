@@ -87,7 +87,7 @@ func (ws *WebStream) AppendData(data []byte) error {
 
 // This function will safely read from the given webstream, blocking if
 // you're trying to read past the end of the data. You can cancel it with the
-// given context (required)
+// given context. If the context is nil, the function is NONBLOCKING
 func (ws *WebStream) ReadData(start, length int, cancel context.Context) ([]byte, error) {
 	if start < 0 {
 		// This is what the other service did, mmm want to make it as similar as possible
@@ -101,20 +101,25 @@ func (ws *WebStream) ReadData(start, length int, cancel context.Context) ([]byte
 	// It is also OK if the data is not currently backed, since we're just waiting on
 	// a signal and not actually reading anything.
 	if start >= ws.length {
-		// We're still locked at this point, so we know nobody is changing this out
-		// from under us
-		waiter := ws.readSignal
-		ws.mu.Unlock()
-		// But now the waiter could be in any state, which... should be fine?
-		select {
-		case <-waiter:
-			// We were signalled
-			return ws.ReadData(start, length, cancel)
-		case <-cancel.Done():
-			// We were killed
-			return nil, cancel.Err()
+		if cancel != nil {
+			// We're still locked at this point, so we know nobody is changing this out
+			// from under us
+			waiter := ws.readSignal
+			ws.mu.Unlock()
+			// But now the waiter could be in any state, which... should be fine?
+			select {
+			case <-waiter:
+				// We were signalled
+				return ws.ReadData(start, length, cancel)
+			case <-cancel.Done():
+				// We were killed
+				return nil, cancel.Err()
+			}
+			// We should always exit this if statement with a return...
+		} else {
+			// This is the "nonblocking" part of reading at the end of the stream
+			return nil, nil
 		}
-		// We should always exit this if statement with a return...
 	}
 	// If we get here, we know that we have data to read. Data can only ever grow
 	// (also we're in a lock so we know the length is static at this point).

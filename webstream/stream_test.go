@@ -126,9 +126,12 @@ func basicStreamTest(t *testing.T, ws *WebStream) []byte {
 	if ws.Backer.Exists("junk") {
 		t.Fatalf("Backing data written before requested\n")
 	}
-	err = ws.DumpStream(false)
+	dumped, err := ws.DumpStream(false)
 	if err != nil {
 		t.Fatalf("Error dumping back to backing: %s\n", err)
+	}
+	if !dumped {
+		t.Fatalf("Stream was supposed to be dumped, it was not")
 	}
 	if len(ws.stream) == 0 || cap(ws.stream) == 0 {
 		t.Fatalf("Stream reset on dump incorrectly!\n")
@@ -141,9 +144,12 @@ func basicStreamTest(t *testing.T, ws *WebStream) []byte {
 		t.Fatalf("Backing and send not equivalent! %s vs %s\n", string(backdat), string(sendData))
 	}
 	// Now actually dump it
-	err = ws.DumpStream(true)
+	dumped, err = ws.DumpStream(true)
 	if err != nil {
 		t.Fatalf("Error dumping back to backing (clear): %s\n", err)
+	}
+	if !dumped {
+		t.Fatalf("Stream was supposed to be dumped, it was not")
 	}
 	if len(ws.stream) != 0 || cap(ws.stream) != 0 {
 		t.Fatalf("Stream not reset on dump\n")

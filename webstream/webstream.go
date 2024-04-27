@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/randomouscrap98/goldmonolith/utils"
 
@@ -48,7 +49,8 @@ type StreamConstants struct {
 	MaxSingleChunk int `json:"maxSingleChunk"`
 }
 
-// All the data held onto for the duration of hosting the handler
+// All the data held onto for the duration of hosting the webstream
+// service (unique instance created for each handler, be careful)
 type WebstreamContext struct {
 	roomRegex  *regexp.Regexp
 	decoder    *schema.Decoder
@@ -56,8 +58,7 @@ type WebstreamContext struct {
 	backer     *WebStreamBacker_File
 	webstreams map[string]*WebStream
 	wslock     sync.Mutex
-	//webstreams *WebstreamCollection
-	config *Config
+	config     *Config
 }
 
 // Produce a new webstream context for hosting webstream
@@ -73,10 +74,12 @@ func NewWebstreamContext(config *Config) (*WebstreamContext, error) {
 		backer:     backer,
 		roomRegex:  roomRegex,
 		obfuscator: utils.GetDefaultObfuscation(),
-		webstreams: make(map[string]*WebStream), //NewWebstreamCollection(backer),
+		webstreams: make(map[string]*WebStream),
 	}, nil
 }
 
+// Get a ready-to-use instance of of a webstream, usable with reads
+// and writes immediately, auto-backed by whatever backer is there
 func (wc *WebstreamContext) GetStream(name string) *WebStream {
 	wc.wslock.Lock()
 	defer wc.wslock.Unlock()
@@ -137,6 +140,20 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 	result.Signalled = ws.GetListenerCount()
 
 	return &result, nil
+}
+
+func (wc *WebstreamContext) DumpStreams() {
+	wc.wslock.Lock()
+	defer wc.wslock.Unlock()
+	for k, v := range wc.webstreams {
+		if time.Now().Sub(v.GetLastWrite()) > time.Duration(wc.config.IdleRoomTime) {
+			_, err := v.DumpStream(true)
+			if err != nil {
+				// A warning is about all we can do...
+				log.Printf("WARN: Error saving webstream %s: %s\n", k, err)
+			}
+		}
+	}
 }
 
 func GetHandler(config *Config) http.Handler {

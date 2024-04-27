@@ -170,19 +170,19 @@ func (ws *WebStream) RefreshStream() (bool, error) {
 
 // Dump the stream back to the backing file, and optionally remove
 // the memory (length will still be available)
-func (ws *WebStream) DumpStream(clear bool) error {
+func (ws *WebStream) DumpStream(clear bool) (bool, error) {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	if cap(ws.stream) == 0 {
-		return fmt.Errorf("can't dump stream: nothing in memory")
+		return false, nil //fmt.Errorf("can't dump stream: nothing in memory")
 	}
 	err := ws.Backer.Write(ws.Name, ws.stream)
 	if err != nil {
-		return err
+		return false, err
 	}
 	// At this point, we know it's all good
 	if clear {
 		ws.stream = nil
 	}
-	return nil
+	return true, nil
 }

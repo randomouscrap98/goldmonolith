@@ -211,7 +211,7 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 		result, err := webctx.GetStreamResult(w, r)
 		//log.Printf("Result: %p\n", result)
 		if err == nil {
-			render.JSON(w, r, result.Data)
+			render.PlainText(w, r, result.Data)
 		}
 	})
 

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -83,6 +85,29 @@ func runServer(handler http.Handler, config *Config) *http.Server {
 	return s
 }
 
+// Taken from: https://github.com/go-chi/chi/blob/master/_examples/fileserver/main.go
+// FileServer conveniently sets up a http.FileServer handler to serve
+// static files from a http.FileSystem.
+func FileServer(r chi.Router, path string, root http.FileSystem) {
+	if strings.ContainsAny(path, "{}*") {
+		panic("FileServer does not permit any URL parameters.")
+	}
+
+	// There's a bug here: what if path is empty?
+	if path != "/" && path[len(path)-1] != '/' {
+		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
+		path += "/"
+	}
+	path += "*"
+
+	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
+		rctx := chi.RouteContext(r.Context())
+		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
+		fs.ServeHTTP(w, r)
+	})
+}
+
 // Great readup: https://dev.to/mokiat/proper-http-shutdown-in-go-3fji
 func waitForShutdown() {
 	// Create a channel to listen for OS signals
@@ -111,6 +136,14 @@ func main() {
 	}
 	webctx.RunBackground(ctx)
 	r.Mount("/webstream", webstream.GetHandler(webctx))
+
+	// --- Static files
+	staticPath, err := filepath.Abs(config.StaticFiles)
+	if err != nil {
+		panic(err)
+	}
+	FileServer(r, "/static", http.Dir(staticPath))
+	log.Printf("Hosting static files at %s\n", staticPath)
 
 	// --- Server ---
 	s := runServer(r, config)

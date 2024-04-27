@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -128,16 +129,34 @@ func main() {
 	defer cancel()
 
 	r := initRouter(config)
+	//services := make([]WebService, 0)
 
-	// --- Webstream -----
-	webctx, err := webstream.NewWebstreamContext(config.Webstream)
-	if err != nil {
-		panic(err)
+	mounts := make(map[string]func() (WebService, error))
+	mounts["/stream"] = func() (WebService, error) { return webstream.NewWebstreamContext(config.Webstream) }
+
+	var wg sync.WaitGroup
+
+	// --- Host all services ---
+	for k, f := range mounts {
+		service, err := f() //webstream.NewWebstreamContext(config.Webstream)
+		if err != nil {
+			panic(err)
+		}
+		r.Mount(k, service.GetHandler())
+		wg.Add(1)
+		service.RunBackground(ctx, &wg)
+		log.Printf("Mounted service at %s", k)
 	}
-	webctx.RunBackground(ctx)
-	r.Mount("/stream", webstream.GetHandler(webctx))
 
-	// --- Static files
+	// // --- Webstream -----
+	// webctx, err := webstream.NewWebstreamContext(config.Webstream)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// services = append(services, webctx)
+	// r.Mount("/stream", webctx.GetHandler())
+
+	// --- Static files -----
 	staticPath, err := filepath.Abs(config.StaticFiles)
 	if err != nil {
 		panic(err)
@@ -151,6 +170,8 @@ func main() {
 
 	log.Println("Shutting down...")
 	cancel() // Cancel the context to signal goroutines to stop
+	wg.Wait()
+	log.Println("All background services stopped")
 
 	// Create a context with a timeout to allow for graceful shutdown
 	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), time.Duration(config.ShutdownTime))

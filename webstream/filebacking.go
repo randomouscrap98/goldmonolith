@@ -18,10 +18,14 @@ type WebStreamBacker_File struct {
 	Config *Config
 }
 
-func GetDefaultFileBacker(config *Config) *WebStreamBacker_File {
+func NewFileBacker(config *Config) (*WebStreamBacker_File, error) {
+	err := os.MkdirAll(config.StreamFolder, 0750)
+	if err != nil {
+		return nil, err
+	}
 	return &WebStreamBacker_File{
 		Config: config,
-	}
+	}, nil
 }
 
 func (wb *WebStreamBacker_File) fpath(name string) string {
@@ -31,11 +35,6 @@ func (wb *WebStreamBacker_File) fpath(name string) string {
 func (wb *WebStreamBacker_File) Write(name string, data []byte) error {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
-	// Hopefully this isn't expensive...
-	err := os.MkdirAll(wb.Config.StreamFolder, 0750)
-	if err != nil {
-		return err
-	}
 	writer, err := os.Create(wb.fpath(name))
 	if err != nil {
 		return err

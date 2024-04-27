@@ -73,7 +73,10 @@ func NewWebstreamContext(config *Config) (*WebstreamContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	backer := GetDefaultFileBacker(config)
+	backer, err := NewFileBacker(config)
+	if err != nil {
+		return nil, err
+	}
 	return &WebstreamContext{
 		config:     config,
 		decoder:    schema.NewDecoder(),
@@ -92,6 +95,13 @@ func (wc *WebstreamContext) GetStream(name string) *WebStream {
 	ws, ok := wc.webstreams[name]
 	if !ok {
 		ws = NewWebStream(name, wc.backer)
+		refreshed, err := ws.RefreshStream()
+		if err != nil {
+			log.Printf("ERROR: Couldn't load webstream %s: %s", name, err)
+		}
+		if refreshed {
+			log.Printf("First load of stream %s from filesystem", name)
+		}
 		wc.webstreams[name] = ws
 	}
 	return ws
@@ -125,12 +135,9 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 	ws := wc.GetStream(room)
 	rname := wc.obfuscator.GetObfuscatedKey(room)
 
-	result := StreamResult{
-		Limit:       wc.config.StreamDataLimit,
-		Used:        ws.GetLength(),
-		Readonlykey: rname,
-		Signalled:   0,
-	}
+	// result := StreamResult{
+	// 	Signalled:   0,
+	// }
 
 	var cancel context.Context = nil
 	if !query.Nonblocking {
@@ -144,10 +151,15 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 		return nil, err
 	}
 
-	result.Data = string(rawdata) // This is expensive I think??
-	result.Signalled = ws.GetListenerCount()
+	return &StreamResult{
+		Limit:       wc.config.StreamDataLimit,
+		Readonlykey: rname,
+		Data:        string(rawdata), // This is expensive I think??
+		Signalled:   ws.GetListenerCount(),
+		Used:        ws.GetLength(),
+	}, nil
 
-	return &result, nil
+	//return &result, nil
 }
 
 func (wc *WebstreamContext) DumpStreams(force bool) {
@@ -155,6 +167,9 @@ func (wc *WebstreamContext) DumpStreams(force bool) {
 	defer wc.wslock.Unlock()
 	for k, v := range wc.webstreams {
 		if force || time.Now().Sub(v.GetLastWrite()) > time.Duration(wc.config.IdleRoomTime) {
+			if force {
+				log.Printf("FORCE DUMPING STREAM: %s", k)
+			}
 			ok, err := v.DumpStream(true)
 			if err != nil {
 				// A warning is about all we can do...
@@ -167,14 +182,16 @@ func (wc *WebstreamContext) DumpStreams(force bool) {
 	}
 }
 
-func (wc *WebstreamContext) RunBackground(cancel context.Context) {
+func (wc *WebstreamContext) RunBackground(cancel context.Context, wg *sync.WaitGroup) {
 	go func() {
+		defer wg.Done()
 		ticker := time.NewTicker(time.Duration(wc.config.IdleRoomTime))
 		defer ticker.Stop()
+		log.Printf("Webstream background service started\n")
 		for {
 			select {
 			case <-cancel.Done():
-				log.Printf("Webstream background cancelled, exiting")
+				log.Printf("Webstream background cancelled, exiting + dumping streams\n")
 				wc.DumpStreams(true) // SUPER IMPORTANT!
 				return
 			case <-ticker.C:
@@ -184,7 +201,7 @@ func (wc *WebstreamContext) RunBackground(cancel context.Context) {
 	}()
 }
 
-func GetHandler(webctx *WebstreamContext) http.Handler {
+func (webctx *WebstreamContext) GetHandler() http.Handler {
 	r := chi.NewRouter()
 
 	r.Get("/constants", func(w http.ResponseWriter, r *http.Request) {

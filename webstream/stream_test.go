@@ -181,7 +181,10 @@ func TestWebstreamSimple(t *testing.T) {
 }
 
 func TestWebstreamFileSimple(t *testing.T) {
-	backer := &WebStreamBacker_File{Config: reasonableConfig("testfilesimple")}
+	backer, err := NewFileBacker(reasonableConfig("testfilesimple")) //&WebStreamBacker_File{Config: reasonableConfig("testfilesimple")}
+	if err != nil {
+		t.Fatalf("Error when creating file backer: %s\n", err)
+	}
 	ws := NewWebStream("junk", backer)
 	_ = basicStreamTest(t, ws)
 }

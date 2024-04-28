@@ -141,7 +141,7 @@ func (tb *testBacker) Read(name string) ([]byte, bool, error) {
 }
 
 func (tb *testBacker) BackingIterator(callback func(string) bool) error {
-	for k, _ := range tb.Rooms {
+	for k := range tb.Rooms {
 		if !callback(k) {
 			return nil
 		}

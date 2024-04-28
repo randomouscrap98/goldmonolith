@@ -99,12 +99,7 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 			return nil, err
 		}
 	}
-	// if !wc.roomRegex.MatchString(room) {
-	// 	http.Error(w, RoomNameError, http.StatusBadRequest)
-	// 	return nil, fmt.Errorf(RoomNameError)
-	// }
 
-	//ws := wc.webstreams.GetStream(room)
 	rname := wc.obfuscator.GetObfuscatedKey(room)
 
 	var cancel context.Context = nil
@@ -120,6 +115,12 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 		http.Error(w, fmt.Sprintf("Error while reading data: %s", err), http.StatusInternalServerError)
 		return nil, err
 	}
+	info, err := wc.webstreams.RoomInfo(room)
+	if err != nil {
+		log.Printf("Error during Roominfo: %s", err)
+		http.Error(w, fmt.Sprintf("Error while reading data: %s", err), http.StatusInternalServerError)
+		return nil, err
+	}
 
 	// Note: that "Signalled" count is very inaccurate, but it was inaccurate on the old
 	// c# system so I think it's fine
@@ -127,8 +128,8 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 		Limit:       wc.config.StreamDataLimit,
 		Readonlykey: rname,
 		Data:        string(rawdata), // This is expensive I think??
-		Signalled:   max(ws.GetListenerCount(), ws.GetLastWriteListenerCount()),
-		Used:        ws.GetLength(),
+		Signalled:   max(info.ListenerCount, info.LastWriteListenerCount),
+		Used:        info.Length,
 	}, nil
 }
 

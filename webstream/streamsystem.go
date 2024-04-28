@@ -39,6 +39,17 @@ func newWebStream(data []byte) *webStream {
 	}
 }
 
+func (ws *webStream) getInfoNoLock() *WebStreamInfo {
+	return &WebStreamInfo{
+		Length:                 ws.length,
+		Capacity:               cap(ws.data),
+		ListenerCount:          ws.listeners,
+		LastWriteListenerCount: ws.lastWriteListeners,
+		LastWrite:              ws.lastWrite,
+		Dirty:                  ws.dirty,
+	}
+}
+
 type WebStreamSystem struct {
 	roomRegex   *regexp.Regexp        // Regex to limit room names
 	backer      WebStreamBacker       // The backing system to persist streams
@@ -92,26 +103,6 @@ func (wsys *WebStreamSystem) decActiveCount() {
 	wsys.acmu.Unlock()
 }
 
-// A threadsafe check if we're at or exceeding active room capacity
-// func (wsys *WebStreamSystem) atActiveCapacity() bool {
-// 	wsys.mu.Lock()
-// 	defer wsys.mu.Unlock()
-// 	count := 0
-// 	for _, ws := range wsys.webstreams {
-//     ws.mu.Lock() // this is a lot of locking... is this ok?
-//     capacity := cap(ws.data)
-//     ws.mu.Unlock()
-// 		//info := ws.getInfo() // this is a lot of locking... will this be ok?
-// 		if capacity > 0 {
-// 			count += 1
-// 			if count >= wsys.config.ActiveRoomLimit {
-// 				return true
-// 			}
-// 		}
-// 	}
-// 	return false
-// }
-
 // Retrieve the ready-made stream object for the given name. Will load
 // stream from persistent storage if this is a brand new room, regardless of
 // what might be done with it in the future. If stream object already exists,
@@ -154,9 +145,9 @@ func (wsys *WebStreamSystem) refreshStreamNoLock(name string, ws *webStream) (bo
 	if err != nil {
 		return false, err
 	}
-	wsys.incActiveCount()
 	ws.length = len(stream)
 	ws.data = stream
+	wsys.incActiveCount()
 	return true, nil
 }
 
@@ -294,12 +285,5 @@ func (wsys *WebStreamSystem) RoomInfo(name string) (*WebStreamInfo, error) {
 	}
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
-	return &WebStreamInfo{
-		Length:                 ws.length,
-		Capacity:               cap(ws.data),
-		ListenerCount:          ws.listeners,
-		LastWriteListenerCount: ws.lastWriteListeners,
-		LastWrite:              ws.lastWrite,
-		Dirty:                  ws.dirty,
-	}, nil
+	return ws.getInfoNoLock(), nil
 }

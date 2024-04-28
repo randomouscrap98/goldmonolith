@@ -18,11 +18,14 @@ type WebStreamBacker interface {
 	// Returns the full backing data, letting you know if it previous existed or not.
 	// Pass the capacity for the newly created byte array
 	Read(string, int) ([]byte, bool, error)
+	// Repeatedly calls your given function for each backing available in the system.
+	// Useful for searches or otherwise
+	BackingIterator(func(string) bool) error
 	// Whether the given backing exists yet. Not threadsafe, don't use this
 	// for determining read/write logic
-	Exists(string) bool
+	// Exists(string) bool
 	// The current number of backings stored in the system.
-	Count() (int, error)
+	// Count() (int, error)
 }
 
 // --- FILE: Simple file based backer ---
@@ -86,17 +89,38 @@ func (wb *WebStreamBacker_File) Read(name string, capacity int) ([]byte, bool, e
 	return stream, true, nil
 }
 
-func (wb *WebStreamBacker_File) Exists(name string) bool {
-	_, err := os.Stat(wb.fpath(name))
-	return err == nil
-}
+// func (wb *WebStreamBacker_File) Exists(name string) bool {
+// 	_, err := os.Stat(wb.fpath(name))
+// 	return err == nil
+// }
 
-func (wb *WebStreamBacker_File) Count() (int, error) {
+// func (wb *WebStreamBacker_File) Count() (int, error) {
+// 	d, err := os.ReadDir(wb.Folder)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	return len(d), nil
+// }
+
+func (wb *WebStreamBacker_File) BackingIterator(callback func(string) bool) error {
+	// d, err := os.Open(wb.Folder)
+	// if err != nil {
+	//   return err
+	// }
+	// defer d.Close()
+	// for {
+
+	// }
 	d, err := os.ReadDir(wb.Folder)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return len(d), nil
+	for _, de := range d {
+		if !callback(de.Name()) {
+			return nil
+		}
+	}
+	return nil
 }
 
 // --- MEM: A backer for testing, in-memory storage only ---
@@ -142,11 +166,20 @@ func (tb *testBacker) Read(name string) ([]byte, bool, error) {
 	}
 }
 
-func (tb *testBacker) Exists(name string) bool {
-	_, ok := tb.Rooms[name]
-	return ok
-}
+// func (tb *testBacker) Exists(name string) bool {
+// 	_, ok := tb.Rooms[name]
+// 	return ok
+// }
 
-func (tb *testBacker) Count() (int, error) {
-	return len(tb.Rooms), nil
+// func (tb *testBacker) Count() (int, error) {
+// 	return len(tb.Rooms), nil
+// }
+
+func (tb *testBacker) BackingIterator(callback func(string) bool) error {
+	for k, _ := range tb.Rooms {
+		if !callback(k) {
+			return nil
+		}
+	}
+	return nil
 }

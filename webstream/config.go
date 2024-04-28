@@ -14,6 +14,7 @@ type Config struct {
 	SingleDataLimit int            // Allowed amount of data to write at once
 	StreamDataLimit int            // Allowed amount of data per room
 	TotalRoomLimit  int            // Total amount of rooms allowed to be stored on the filesystem.
+	ActiveRoomLimit int            // Amount of rooms allowed to be active in memory at once (memory issue)
 	IdleRoomTime    utils.Duration // Time since last write = dump if greater
 	ReadTimeout     utils.Duration // How long you're allowed to wait on read before it completes with empty data
 	//TotalDataLimit  int64 // Total amount of data
@@ -29,6 +30,7 @@ SingleDataLimit=50000               # Allowed amount of data in one write
 StreamDataLimit=5000000             # Allowed amount of data for total room
 # TotalDataLimit=1_000_000_000      # Total amount of data in all rooms
 TotalRoomLimit=400                  # Total amount of rooms allowed to be created.
+ActiveRoomLimit=10                 # Amount of rooms allowed to be active at once
 IdleRoomTime="1m"                   # How long a room can have no writes in before dumping it to fs (AGGRESSIVE)
 ReadTimeout="1m"                    # How long you're allowed to wait on read before it completes with empty data
 

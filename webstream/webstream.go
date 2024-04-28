@@ -58,13 +58,14 @@ type StreamConstants struct {
 // All the data held onto for the duration of hosting the webstream
 // service (unique instance created for each handler, be careful)
 type WebstreamContext struct {
+	webstreams *StreamSet
 	roomRegex  *regexp.Regexp
 	decoder    *schema.Decoder
 	obfuscator *utils.ObfuscatedKeys
-	backer     *WebStreamBacker_File
-	webstreams map[string]*WebStream
-	wslock     sync.Mutex
-	config     *Config
+	//backer     *WebStreamBacker_File
+	//webstreams map[string]*WebStream
+	//wslock     sync.Mutex
+	config *Config
 }
 
 // Produce a new webstream context for hosting webstream
@@ -78,34 +79,34 @@ func NewWebstreamContext(config *Config) (*WebstreamContext, error) {
 		return nil, err
 	}
 	return &WebstreamContext{
-		config:     config,
-		decoder:    schema.NewDecoder(),
-		backer:     backer,
+		config:  config,
+		decoder: schema.NewDecoder(),
+		//backer:     backer,
 		roomRegex:  roomRegex,
 		obfuscator: utils.GetDefaultObfuscation(),
-		webstreams: make(map[string]*WebStream),
+		webstreams: NewStreamSet(config, backer), //make(map[string]*WebStream),
 	}, nil
 }
 
-// Get a ready-to-use instance of of a webstream, usable with reads
-// and writes immediately, auto-backed by whatever backer is there
-func (wc *WebstreamContext) GetStream(name string) *WebStream {
-	wc.wslock.Lock()
-	defer wc.wslock.Unlock()
-	ws, ok := wc.webstreams[name]
-	if !ok {
-		ws = NewWebStream(name, wc.backer)
-		refreshed, err := ws.RefreshStream()
-		if err != nil {
-			log.Printf("ERROR: Couldn't load webstream %s: %s", name, err)
-		}
-		if refreshed {
-			log.Printf("First load of stream %s from filesystem", name)
-		}
-		wc.webstreams[name] = ws
-	}
-	return ws
-}
+// // Get a ready-to-use instance of of a webstream, usable with reads
+// // and writes immediately, auto-backed by whatever backer is there
+// func (wc *WebstreamContext) GetStream(name string) *WebStream {
+// 	wc.wslock.Lock()
+// 	defer wc.wslock.Unlock()
+// 	ws, ok := wc.webstreams[name]
+// 	if !ok {
+// 		ws = NewWebStream(name, wc.backer)
+// 		refreshed, err := ws.RefreshStream()
+// 		if err != nil {
+// 			log.Printf("ERROR: Couldn't load webstream %s: %s", name, err)
+// 		}
+// 		if refreshed {
+// 			log.Printf("First load of stream %s from filesystem", name)
+// 		}
+// 		wc.webstreams[name] = ws
+// 	}
+// 	return ws
+// }
 
 // Taken almost verbatim from the c# program
 func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Request) (*StreamResult, error) {
@@ -130,7 +131,7 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 		return nil, fmt.Errorf(RoomNameError)
 	}
 
-	ws := wc.GetStream(room)
+	ws := wc.webstreams.GetStream(room)
 	rname := wc.obfuscator.GetObfuscatedKey(room)
 
 	var cancel context.Context = nil

@@ -8,18 +8,18 @@ import (
 	"time"
 )
 
-// Streams are in-memory for maximum performance and minimum complexity.
-// However, they can periodically be dumped to a "backer" for
-// permanent (or otherwise) storage
-type WebStreamBacker interface {
-	Write(string, []byte) error
-	Read(string) ([]byte, error)
-	Exists(string) bool
-}
+// // Streams are in-memory for maximum performance and minimum complexity.
+// // However, they can periodically be dumped to a "backer" for
+// // permanent (or otherwise) storage
+// type WebStreamBacker interface {
+// 	Write(string, []byte) error
+// 	Read(string) ([]byte, error)
+// 	Exists(string) bool
+// }
 
 // A webstream is a chunk of preallocated memory that can be read from and appended to.
-// This webstream understands that it is backed by a file, and that it is possible to
-// remove the memory while still functioning
+// This webstream understands that it is backed by some persistent storage, and that it
+// is possible to remove the memory while still functioning
 type WebStream struct {
 	stream             []byte
 	mu                 sync.Mutex

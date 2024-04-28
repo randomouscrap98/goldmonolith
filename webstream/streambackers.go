@@ -21,11 +21,6 @@ type WebStreamBacker interface {
 	// Repeatedly calls your given function for each backing available in the system.
 	// Useful for searches or otherwise
 	BackingIterator(func(string) bool) error
-	// Whether the given backing exists yet. Not threadsafe, don't use this
-	// for determining read/write logic
-	// Exists(string) bool
-	// The current number of backings stored in the system.
-	// Count() (int, error)
 }
 
 // --- FILE: Simple file based backer ---
@@ -89,28 +84,7 @@ func (wb *WebStreamBacker_File) Read(name string, capacity int) ([]byte, bool, e
 	return stream, true, nil
 }
 
-// func (wb *WebStreamBacker_File) Exists(name string) bool {
-// 	_, err := os.Stat(wb.fpath(name))
-// 	return err == nil
-// }
-
-// func (wb *WebStreamBacker_File) Count() (int, error) {
-// 	d, err := os.ReadDir(wb.Folder)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	return len(d), nil
-// }
-
 func (wb *WebStreamBacker_File) BackingIterator(callback func(string) bool) error {
-	// d, err := os.Open(wb.Folder)
-	// if err != nil {
-	//   return err
-	// }
-	// defer d.Close()
-	// for {
-
-	// }
 	d, err := os.ReadDir(wb.Folder)
 	if err != nil {
 		return err
@@ -165,15 +139,6 @@ func (tb *testBacker) Read(name string) ([]byte, bool, error) {
 		return data, true, nil
 	}
 }
-
-// func (tb *testBacker) Exists(name string) bool {
-// 	_, ok := tb.Rooms[name]
-// 	return ok
-// }
-
-// func (tb *testBacker) Count() (int, error) {
-// 	return len(tb.Rooms), nil
-// }
 
 func (tb *testBacker) BackingIterator(callback func(string) bool) error {
 	for k, _ := range tb.Rooms {

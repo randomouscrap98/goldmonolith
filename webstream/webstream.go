@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"regexp"
 	"sync"
 	"time"
 
@@ -58,55 +57,29 @@ type StreamConstants struct {
 // All the data held onto for the duration of hosting the webstream
 // service (unique instance created for each handler, be careful)
 type WebstreamContext struct {
-	webstreams *StreamSet
-	roomRegex  *regexp.Regexp
+	webstreams *WebStreamSystem
 	decoder    *schema.Decoder
 	obfuscator *utils.ObfuscatedKeys
-	//backer     *WebStreamBacker_File
-	//webstreams map[string]*WebStream
-	//wslock     sync.Mutex
-	config *Config
+	config     *Config
 }
 
 // Produce a new webstream context for hosting webstream
 func NewWebstreamContext(config *Config) (*WebstreamContext, error) {
-	roomRegex, err := regexp.Compile(config.RoomRegex)
+	backer, err := NewFileBacker(config.StreamFolder)
 	if err != nil {
 		return nil, err
 	}
-	backer, err := NewFileBacker(config)
+	system, err := NewWebStreamSystem(config, backer)
 	if err != nil {
 		return nil, err
 	}
 	return &WebstreamContext{
-		config:  config,
-		decoder: schema.NewDecoder(),
-		//backer:     backer,
-		roomRegex:  roomRegex,
+		config:     config,
+		decoder:    schema.NewDecoder(),
 		obfuscator: utils.GetDefaultObfuscation(),
-		webstreams: NewStreamSet(config, backer), //make(map[string]*WebStream),
+		webstreams: system,
 	}, nil
 }
-
-// // Get a ready-to-use instance of of a webstream, usable with reads
-// // and writes immediately, auto-backed by whatever backer is there
-// func (wc *WebstreamContext) GetStream(name string) *WebStream {
-// 	wc.wslock.Lock()
-// 	defer wc.wslock.Unlock()
-// 	ws, ok := wc.webstreams[name]
-// 	if !ok {
-// 		ws = NewWebStream(name, wc.backer)
-// 		refreshed, err := ws.RefreshStream()
-// 		if err != nil {
-// 			log.Printf("ERROR: Couldn't load webstream %s: %s", name, err)
-// 		}
-// 		if refreshed {
-// 			log.Printf("First load of stream %s from filesystem", name)
-// 		}
-// 		wc.webstreams[name] = ws
-// 	}
-// 	return ws
-// }
 
 // Taken almost verbatim from the c# program
 func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Request) (*StreamResult, error) {
@@ -126,12 +99,12 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 			return nil, err
 		}
 	}
-	if !wc.roomRegex.MatchString(room) {
-		http.Error(w, RoomNameError, http.StatusBadRequest)
-		return nil, fmt.Errorf(RoomNameError)
-	}
+	// if !wc.roomRegex.MatchString(room) {
+	// 	http.Error(w, RoomNameError, http.StatusBadRequest)
+	// 	return nil, fmt.Errorf(RoomNameError)
+	// }
 
-	ws := wc.webstreams.GetStream(room)
+	//ws := wc.webstreams.GetStream(room)
 	rname := wc.obfuscator.GetObfuscatedKey(room)
 
 	var cancel context.Context = nil
@@ -141,10 +114,10 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 	}
 	defer cancelfunc()
 
-	rawdata, err := ws.ReadData(query.Start, query.Count, cancel)
+	rawdata, err := wc.webstreams.ReadData(room, query.Start, query.Count, cancel)
 	if err != nil {
 		log.Printf("Error during ReadData: %s", err)
-		http.Error(w, "Error while reading data (sorry!)", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error while reading data: %s", err), http.StatusInternalServerError)
 		return nil, err
 	}
 
@@ -159,26 +132,6 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 	}, nil
 }
 
-func (wc *WebstreamContext) DumpStreams(force bool) {
-	wc.wslock.Lock()
-	defer wc.wslock.Unlock()
-	for k, v := range wc.webstreams {
-		if force || time.Now().Sub(v.GetLastWrite()) > time.Duration(wc.config.IdleRoomTime) {
-			if force {
-				log.Printf("FORCE DUMPING STREAM: %s", k)
-			}
-			ok, err := v.DumpStream(true)
-			if err != nil {
-				// A warning is about all we can do...
-				log.Printf("WARN: Error saving webstream %s: %s\n", k, err)
-			}
-			if ok {
-				log.Printf("Dumped room %s to filesystem\n", k)
-			}
-		}
-	}
-}
-
 func (wc *WebstreamContext) RunBackground(cancel context.Context, wg *sync.WaitGroup) {
 	go func() {
 		defer wg.Done()
@@ -189,10 +142,10 @@ func (wc *WebstreamContext) RunBackground(cancel context.Context, wg *sync.WaitG
 			select {
 			case <-cancel.Done():
 				log.Printf("Webstream background cancelled, exiting + dumping streams\n")
-				wc.DumpStreams(true) // SUPER IMPORTANT!
+				wc.webstreams.DumpStreams(true) // SUPER IMPORTANT!
 				return
 			case <-ticker.C:
-				wc.DumpStreams(false)
+				wc.webstreams.DumpStreams(false)
 			}
 		}
 	}()
@@ -225,12 +178,11 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 
 	r.Post("/{room}", func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, int64(webctx.config.SingleDataLimit))
-		// config.SimpleFormLimit))
 		room := chi.URLParam(r, "room")
-		if !webctx.roomRegex.MatchString(room) {
-			http.Error(w, RoomNameError, http.StatusBadRequest)
-			return
-		}
+		// if !webctx.roomRegex.MatchString(room) {
+		// 	http.Error(w, RoomNameError, http.StatusBadRequest)
+		// 	return
+		// }
 		// We're safe to just "read all" since we've limited the body above
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -238,8 +190,8 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
-		ws := webctx.GetStream(room)
-		err = ws.AppendData(data)
+		//ws := webctx.GetStream(room)
+		err = webctx.webstreams.AppendData(room, data)
 		if err != nil {
 			log.Printf("Append error for room %s: %s\n", room, err)
 			// This COULD be because the room is full, we should show the error

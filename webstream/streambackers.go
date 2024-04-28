@@ -23,6 +23,18 @@ type WebStreamBacker interface {
 	BackingIterator(func(string) bool) error
 }
 
+func Exists(b WebStreamBacker, name string) (bool, error) {
+	exists := false
+	err := b.BackingIterator(func(k string) bool {
+		if k == name {
+			exists = true
+			return false // stop
+		}
+		return true // Continue
+	})
+	return exists, err
+}
+
 // --- FILE: Simple file based backer ---
 
 // Backing data storage for WebStream that stores to the filesystem based
@@ -105,16 +117,14 @@ type backerEvent struct {
 }
 
 type testBacker struct {
-	Capacity int
-	Rooms    map[string][]byte
-	Events   []backerEvent
+	Rooms  map[string][]byte
+	Events []backerEvent
 }
 
-func NewTestBacker(capacity int) *testBacker {
+func NewTestBacker() *testBacker {
 	return &testBacker{
-		Capacity: capacity,
-		Rooms:    make(map[string][]byte),
-		Events:   make([]backerEvent, 0),
+		Rooms:  make(map[string][]byte),
+		Events: make([]backerEvent, 0),
 	}
 }
 
@@ -127,14 +137,14 @@ func (tb *testBacker) Write(name string, data []byte) error {
 	return nil
 }
 
-func (tb *testBacker) Read(name string) ([]byte, bool, error) {
+func (tb *testBacker) Read(name string, capacity int) ([]byte, bool, error) {
 	data, ok := tb.Rooms[name]
 	tb.Events = append(tb.Events, backerEvent{
 		Type: 0,
 		Data: data,
 	})
 	if !ok { // This is a "new" room, so give it something...
-		return make([]byte, 0, tb.Capacity), false, nil
+		return make([]byte, 0, capacity), false, nil
 	} else {
 		return data, true, nil
 	}

@@ -85,6 +85,12 @@ func NewWebStreamSystem(config *Config, backer WebStreamBacker) (*WebStreamSyste
 	}, nil
 }
 
+func (wsys *WebStreamSystem) RoomCount() int {
+	wsys.acmu.Lock()
+	defer wsys.acmu.Unlock()
+	return len(wsys.webstreams)
+}
+
 func (wsys *WebStreamSystem) atActiveCapacity() bool {
 	wsys.acmu.Lock()
 	defer wsys.acmu.Unlock()
@@ -109,7 +115,7 @@ func (wsys *WebStreamSystem) decActiveCount() {
 // you'll get whatever is available (may be a dumped(idle) room...)
 func (wsys *WebStreamSystem) getStream(name string) (*webStream, error) {
 	if !wsys.roomRegex.MatchString(name) {
-		return nil, fmt.Errorf("Room name has invalid characters! Try something simpler!")
+		return nil, fmt.Errorf("Room name has invalid characters! Regex: %s", wsys.roomRegex.String())
 	}
 	wsys.wsmu.Lock()
 	defer wsys.wsmu.Unlock()
@@ -153,7 +159,8 @@ func (wsys *WebStreamSystem) refreshStreamNoLock(name string, ws *webStream) (bo
 
 // Dump data from all streams which are idling and still have data. Alternatively, force
 // dump every single room with data. Will always clear any dumped stream to conserve memory
-func (wsys *WebStreamSystem) DumpStreams(force bool) {
+func (wsys *WebStreamSystem) DumpStreams(force bool) []string {
+	dumped := make([]string, 0)
 	wsys.wsmu.Lock()
 	defer wsys.wsmu.Unlock()
 	idleTime := time.Duration(wsys.config.IdleRoomTime)
@@ -174,12 +181,14 @@ func (wsys *WebStreamSystem) DumpStreams(force bool) {
 					ws.data = nil
 					ws.dirty = false
 					wsys.decActiveCount()
+					dumped = append(dumped, k)
 					log.Printf("Dumped room %s to filesystem\n", k)
 				}
 			}
 		}
 		ws.mu.Unlock()
 	}
+	return dumped
 }
 
 // Append the given data to this stream. Will throw an error if the

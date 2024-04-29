@@ -340,11 +340,16 @@ func TestWebstreamReadFilledWait(t *testing.T) {
 }
 
 func TestExistingRooms(t *testing.T) {
-	config := reasonableConfig("readempty")
+	config := reasonableConfig("existingrooms")
 	backer := NewTestBacker()
-	// Add some crap to the backer
+	// Add some crap to the backer. There was a regression where
+	// we didn't iterate over every room, so we add a HUGE amount
+	// (go uses random hashtables UGH)
 	backer.Rooms["abc"] = []byte("It's easy or something")
 	backer.Rooms["123"] = []byte("But instead it's horrible")
+	for i := range 5000 {
+		backer.Rooms[fmt.Sprintf("filler%d", i)] = []byte("nice")
+	}
 	system, err := NewWebStreamSystem(config, backer)
 	if err != nil {
 		t.Fatalf("Error while initializing new system: %s", err)
@@ -358,5 +363,36 @@ func TestExistingRooms(t *testing.T) {
 	}
 	if !bytes.Equal(backer.Rooms["abc"], data) {
 		t.Fatalf("Read data not the same as existing room, %s vs %s", string(data), string(backer.Rooms["abc"]))
+	}
+}
+
+func TestDeadlockRegression(t *testing.T) {
+	// There used to be a very simple way to deadlock: nonblocking read on empty room
+	_, _, system := getSystem(t, "deadlockregression")
+	data, err := system.ReadData("junk", 0, -1, nil)
+	if err != nil {
+		t.Fatalf("Not supposed to error out: %s", err)
+	}
+	if len(data) != 0 {
+		t.Fatalf("Not supposed to get data")
+	}
+	// Now just do anything with the same room. In the website, we pull the room info
+	done := make(chan struct{})
+	var goerr error
+	var info *WebStreamInfo
+	go func() {
+		info, goerr = system.RoomInfo("junk")
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatalf("Deadlock on empty nonblocking read")
+	}
+	if goerr != nil {
+		t.Fatalf("Not supposed to error out: %s", err)
+	}
+	if info.Length != 0 || info.Capacity != 0 {
+		t.Fatalf("Something weird happened with info")
 	}
 }

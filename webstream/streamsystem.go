@@ -73,7 +73,7 @@ func NewWebStreamSystem(config *Config, backer WebStreamBacker) (*WebStreamSyste
 	err = backer.BackingIterator(func(k string, gl func() int) bool {
 		webstreams[k] = newWebStream(nil)
 		webstreams[k].length = gl()
-		return false
+		return true
 	})
 	if err != nil {
 		return nil, err
@@ -262,6 +262,7 @@ func (wsys *WebStreamSystem) ReadData(name string, start, length int, cancel con
 			}
 			// We should always exit this if statement with a return...
 		} else {
+			ws.mu.Unlock()
 			// This is the "nonblocking" part of reading at the end of the stream
 			return nil, nil
 		}

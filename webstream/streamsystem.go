@@ -115,7 +115,7 @@ func (wsys *WebStreamSystem) decActiveCount() {
 // you'll get whatever is available (may be a dumped(idle) room...)
 func (wsys *WebStreamSystem) getStream(name string) (*webStream, error) {
 	if !wsys.roomRegex.MatchString(name) {
-		return nil, fmt.Errorf("Room name has invalid characters! Regex: %s", wsys.roomRegex.String())
+		return nil, &RoomNameError{Regex: wsys.roomRegex.String()}
 	}
 	wsys.wsmu.Lock()
 	defer wsys.wsmu.Unlock()
@@ -123,7 +123,7 @@ func (wsys *WebStreamSystem) getStream(name string) (*webStream, error) {
 	if !ok {
 		// This is a new room, we must first check if there's enough space to add it...
 		if len(wsys.webstreams) >= wsys.config.TotalRoomLimit {
-			return nil, fmt.Errorf("room limit reached (%d), no new rooms can be created", wsys.config.TotalRoomLimit)
+			return nil, &RoomLimitError{Limit: wsys.config.TotalRoomLimit}
 		}
 		// We're fine to add it, and I don't think there's any need to refresh it
 		ws = newWebStream(nil)
@@ -144,7 +144,7 @@ func (wsys *WebStreamSystem) refreshStreamNoLock(name string, ws *webStream) (bo
 	}
 	// Can't refresh if there's too many active rooms
 	if wsys.atActiveCapacity() {
-		return false, fmt.Errorf("active room limit reached (%d), must wait for another room to idle", wsys.config.ActiveRoomLimit)
+		return false, &ActiveRoomLimitError{Limit: wsys.config.ActiveRoomLimit}
 	}
 	// This ALWAYS loads the stream into memory.
 	stream, _, err := wsys.backer.Read(name, wsys.config.StreamDataLimit)
@@ -211,7 +211,7 @@ func (wsys *WebStreamSystem) AppendData(name string, data []byte) error {
 		log.Printf("Write for %s at %d+%d refreshed backing stream\n", name, ws.length, len(data))
 	}
 	if len(data)+ws.length > cap(ws.data) {
-		return fmt.Errorf("data overflows capacity: %d", cap(ws.data))
+		return &OverCapacityError{Capacity: cap(ws.data)}
 	}
 	ws.data = ws.data[:ws.length+len(data)] // Embiggen
 	copy(ws.data[ws.length:], data)         // we don't use append because we specifically do not want it to grow ever

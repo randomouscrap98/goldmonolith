@@ -40,18 +40,93 @@ func reasonableConfig(name string) *Config {
 	}
 }
 
-// ---- Now the actual tests ------
+func getSystem(t *testing.T, name string) (*testBacker, *Config, *WebStreamSystem) {
+	config := reasonableConfig(name)
+	backer, system := getSystemCustom(t, config)
+	return backer, config, system
+}
 
-func TestNewSystem(t *testing.T) {
+func getSystemCustom(t *testing.T, config *Config) (*testBacker, *WebStreamSystem) {
 	backer := NewTestBacker()
-	config := reasonableConfig("newsys")
 	system, err := NewWebStreamSystem(config, backer)
 	if err != nil {
 		t.Fatalf("Error while initializing new system: %s", err)
 	}
+	return backer, system
+}
+
+// ---- Now the actual tests ------
+
+func TestNewSystem(t *testing.T) {
+	_, _, system := getSystem(t, "newsys")
 	count := system.RoomCount()
 	if count != 0 {
 		t.Fatalf("Expected no rooms in new system, got %d", count)
+	}
+}
+
+func TestRoomRegexEmptyNonblockingRead(t *testing.T) {
+	config := reasonableConfig("newsys")
+	config.RoomRegex = "^[a-zA-Z0-9-]{3,256}$"
+	_, system := getSystemCustom(t, config)
+	_, err := system.ReadData("i", 0, -1, nil)
+	_, is := err.(*RoomNameError)
+	if !is {
+		t.Errorf("Expected RoomNameError for too-short string, got %s", err)
+	}
+	_, err = system.ReadData("abcdef*", 0, -1, nil)
+	_, is = err.(*RoomNameError)
+	if !is {
+		t.Errorf("Expected RoomNameError for special char string, got %s", err)
+	}
+	data, err := system.ReadData("abcdef", 0, -1, nil)
+	if err != nil {
+		t.Errorf("Expected no error for normal room string, got %s", err)
+	}
+	if len(data) != 0 {
+		t.Errorf("Expected empty data for non-blocking read from empty room, got %d", len(data))
+	}
+}
+
+func TestTotalRoomLimit(t *testing.T) {
+	config := reasonableConfig("totallimit")
+	config.TotalRoomLimit = 10
+	config.ActiveRoomLimit = 100 // Must be larger so we don't run into it
+	_, system := getSystemCustom(t, config)
+	for range 5 {
+		for i := range 10 {
+			err := system.AppendData(fmt.Sprintf("heck%d", i), []byte("Just some data or whatever"))
+			if err != nil {
+				t.Fatalf("Didn't expect any errors while appending rooms, got %s", err)
+			}
+		}
+	}
+	// Now this room should fail
+	err := system.AppendData("finalroom", []byte("Death"))
+	_, is := err.(*RoomLimitError)
+	if !is {
+		t.Fatalf("Did not fail on too many rooms!")
+	}
+}
+
+func TestActiveRoomLimit(t *testing.T) {
+	config := reasonableConfig("activelimit")
+	config.ActiveRoomLimit = 10
+	config.TotalRoomLimit = 100 // Must be larger so we don't run into it
+	_, system := getSystemCustom(t, config)
+	for range 5 {
+		for i := range 10 {
+			err := system.AppendData(fmt.Sprintf("heck%d", i), []byte("Just some data or whatever"))
+			if err != nil {
+				t.Fatalf("Didn't expect any errors while appending rooms, got %s", err)
+			}
+		}
+	}
+	// Now this room should fail
+	err := system.AppendData("finalroom", []byte("Death"))
+	_, is := err.(*ActiveRoomLimitError)
+	if !is {
+		t.Fatalf("Did not fail on too many active rooms!")
 	}
 }
 
@@ -111,10 +186,7 @@ func basicStreamTest(t *testing.T, room string, wsys *WebStreamSystem) []byte {
 }
 
 func TestWebstreamSimple(t *testing.T) {
-	backer := NewTestBacker()
-	config := reasonableConfig("simple")
-	system, err := NewWebStreamSystem(config, backer)
-	//ws := NewWebStream("junk", backer)
+	backer, _, system := getSystem(t, "simple")
 	sendData := basicStreamTest(t, "sim", system)
 	eventLength := len(backer.Events)
 	// Reading should still get us the data, it'll be refreshed
@@ -149,7 +221,6 @@ func basicReadRoutine(t *testing.T, room string, wsys *WebStreamSystem, count in
 	threadRead := make([][]byte, count)
 	threadLock := make([]sync.Mutex, count)
 	threadErr := make([]error, count)
-	//roomname := func(i int) string { return fmt.Sprintf("read_%d", i) }
 	for i := range count {
 		go func(index int) {
 			tempRead, err := wsys.ReadData(room, offset, -1, context.Background())
@@ -202,12 +273,7 @@ func basicReadRoutine(t *testing.T, room string, wsys *WebStreamSystem, count in
 }
 
 func TestWebstreamReadEmptyWait(t *testing.T) {
-	backer := NewTestBacker()
-	config := reasonableConfig("readempty")
-	system, err := NewWebStreamSystem(config, backer)
-	if err != nil {
-		t.Fatalf("Error creating webstream system: %s\n", err)
-	}
+	_, _, system := getSystem(t, "readempty")
 	doRun := func(count int) {
 		basicReadRoutine(t, fmt.Sprintf("junk%d", count), system, count, 0)
 	}
@@ -218,12 +284,7 @@ func TestWebstreamReadEmptyWait(t *testing.T) {
 }
 
 func TestWebstreamReadFilledWait(t *testing.T) {
-	backer := NewTestBacker()
-	config := reasonableConfig("readfilled")
-	system, err := NewWebStreamSystem(config, backer)
-	if err != nil {
-		t.Fatalf("Error creating webstream system: %s\n", err)
-	}
+	_, _, system := getSystem(t, "readempty")
 	doRun := func(count int) {
 		room := fmt.Sprintf("junk%d", count)
 		// Write some data

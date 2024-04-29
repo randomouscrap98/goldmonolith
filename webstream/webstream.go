@@ -16,10 +16,6 @@ import (
 	"github.com/gorilla/schema"
 )
 
-const (
-	RoomNameError = "Room name has invalid characters! Try something simpler!"
-)
-
 // Query the user sends in to get parts of a stream or whatever
 type StreamQuery struct {
 	Start       int  `schema:"start"`
@@ -164,7 +160,6 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 
 	r.Get("/{room}", func(w http.ResponseWriter, r *http.Request) {
 		result, err := webctx.GetStreamResult(w, r)
-		//log.Printf("Result: %p\n", result)
 		if err == nil {
 			render.PlainText(w, r, result.Data)
 		}
@@ -180,10 +175,6 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 	r.Post("/{room}", func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, int64(webctx.config.SingleDataLimit))
 		room := chi.URLParam(r, "room")
-		// if !webctx.roomRegex.MatchString(room) {
-		// 	http.Error(w, RoomNameError, http.StatusBadRequest)
-		// 	return
-		// }
 		// We're safe to just "read all" since we've limited the body above
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -191,7 +182,6 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
-		//ws := webctx.GetStream(room)
 		err = webctx.webstreams.AppendData(room, data)
 		if err != nil {
 			log.Printf("Append error for room %s: %s\n", room, err)

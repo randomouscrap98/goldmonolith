@@ -173,17 +173,30 @@ func (wsys *WebStreamSystem) DumpStreams(force bool) []string {
 				log.Printf("FORCE DUMPING STREAM: %s", k)
 			}
 			// Only dump if there's really something to dump
-			if cap(ws.data) != 0 && ws.dirty {
-				err := wsys.backer.Write(k, ws.data)
-				if err != nil {
-					// A warning is about all we can do...
-					log.Printf("WARN: Error saving webstream %s: %s\n", k, err)
-				} else {
+			if cap(ws.data) != 0 {
+				var err error
+				var written bool
+				// Only write if the data is dirty (to save disk writes? idk...)
+				if ws.dirty {
+					err = wsys.backer.Write(k, ws.data)
+					if err != nil {
+						// A warning is about all we can do...
+						log.Printf("WARN: Error saving webstream %s: %s\n", k, err)
+					} else {
+						written = true
+					}
+				}
+				// Only CLEAR the data if nothing bad happened
+				if err == nil {
 					ws.data = nil
 					ws.dirty = false
 					wsys.decActiveCount()
 					dumped = append(dumped, k)
-					log.Printf("Dumped room %s to filesystem\n", k)
+					if written {
+						log.Printf("Dumped room %s to persistent storage\n", k)
+					} else {
+						log.Printf("Offloaded room %s (no change)\n", k)
+					}
 				}
 			}
 		}

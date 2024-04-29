@@ -396,3 +396,31 @@ func TestDeadlockRegression(t *testing.T) {
 		t.Fatalf("Something weird happened with info")
 	}
 }
+
+// if you only read from a room, it used to be that a dump would never occur,
+// so it would always stay in memory
+func TestNoDumpOnReadOnlyRegression(t *testing.T) {
+	config := reasonableConfig("nodumpreadonly")
+	backer := NewTestBacker()
+	// Add some crap to the backer. There was a regression where
+	// we didn't iterate over every room, so we add a HUGE amount
+	// (go uses random hashtables UGH)
+	backer.Rooms["abc"] = []byte("It's easy or something")
+	system, err := NewWebStreamSystem(config, backer)
+	if err != nil {
+		t.Fatalf("Error while initializing new system: %s", err)
+	}
+	for range 3 {
+		data, err := system.ReadData("abc", 0, -1, nil)
+		if err != nil {
+			t.Fatalf("Not supposed to error out: %s", err)
+		}
+		if !bytes.Equal(backer.Rooms["abc"], data) {
+			t.Fatalf("Expected read %s, got %s", string(backer.Rooms["abc"]), string(data))
+		}
+		dumped := system.DumpStreams(true)
+		if len(dumped) != 1 {
+			t.Fatalf("Needed to dump exactly one room. See: %s", dumped)
+		}
+	}
+}

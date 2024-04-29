@@ -20,12 +20,12 @@ type WebStreamBacker interface {
 	Read(string, int) ([]byte, bool, error)
 	// Repeatedly calls your given function for each backing available in the system.
 	// Useful for searches or otherwise
-	BackingIterator(func(string) bool) error
+	BackingIterator(func(string, func() int) bool) error
 }
 
 func Exists(b WebStreamBacker, name string) (bool, error) {
 	exists := false
-	err := b.BackingIterator(func(k string) bool {
+	err := b.BackingIterator(func(k string, gl func() int) bool {
 		if k == name {
 			exists = true
 			return false // stop
@@ -96,13 +96,21 @@ func (wb *WebStreamBacker_File) Read(name string, capacity int) ([]byte, bool, e
 	return stream, true, nil
 }
 
-func (wb *WebStreamBacker_File) BackingIterator(callback func(string) bool) error {
+func (wb *WebStreamBacker_File) BackingIterator(callback func(string, func() int) bool) error {
 	d, err := os.ReadDir(wb.Folder)
 	if err != nil {
 		return err
 	}
 	for _, de := range d {
-		if !callback(de.Name()) {
+		getLength := func() int {
+			info, err := de.Info()
+			if err == nil {
+				return int(info.Size())
+			} else {
+				return 0
+			}
+		}
+		if !callback(de.Name(), getLength) {
 			return nil
 		}
 	}
@@ -150,9 +158,9 @@ func (tb *testBacker) Read(name string, capacity int) ([]byte, bool, error) {
 	}
 }
 
-func (tb *testBacker) BackingIterator(callback func(string) bool) error {
-	for k := range tb.Rooms {
-		if !callback(k) {
+func (tb *testBacker) BackingIterator(callback func(string, func() int) bool) error {
+	for k, v := range tb.Rooms {
+		if !callback(k, func() int { return len(v) }) {
 			return nil
 		}
 	}

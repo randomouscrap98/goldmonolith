@@ -338,3 +338,25 @@ func TestWebstreamReadFilledWait(t *testing.T) {
 	doRun(2)
 	doRun(5)
 }
+
+func TestExistingRooms(t *testing.T) {
+	config := reasonableConfig("readempty")
+	backer := NewTestBacker()
+	// Add some crap to the backer
+	backer.Rooms["abc"] = []byte("It's easy or something")
+	backer.Rooms["123"] = []byte("But instead it's horrible")
+	system, err := NewWebStreamSystem(config, backer)
+	if err != nil {
+		t.Fatalf("Error while initializing new system: %s", err)
+	}
+	// now, we should be able to immediately read from the room
+	ctx, cancel := context.WithTimeout(context.Background(), GoroutineWait)
+	defer cancel()
+	data, err := system.ReadData("abc", 0, -1, ctx)
+	if err != nil {
+		t.Fatalf("Error while reading existing room: %s", err)
+	}
+	if !bytes.Equal(backer.Rooms["abc"], data) {
+		t.Fatalf("Read data not the same as existing room, %s vs %s", string(data), string(backer.Rooms["abc"]))
+	}
+}

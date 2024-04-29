@@ -70,8 +70,9 @@ func NewWebStreamSystem(config *Config, backer WebStreamBacker) (*WebStreamSyste
 	// millions (I think...). This simplifies a great number of things, but if this needs
 	// to be changed, it should be doable...
 	webstreams := make(map[string]*webStream)
-	err = backer.BackingIterator(func(k string) bool {
+	err = backer.BackingIterator(func(k string, gl func() int) bool {
 		webstreams[k] = newWebStream(nil)
+		webstreams[k].length = gl()
 		return false
 	})
 	if err != nil {

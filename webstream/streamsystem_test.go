@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/randomouscrap98/goldmonolith/utils"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,11 +94,22 @@ func TestTotalRoomLimit(t *testing.T) {
 	config.TotalRoomLimit = 10
 	config.ActiveRoomLimit = 100 // Must be larger so we don't run into it
 	_, system := getSystemCustom(t, config)
-	for range 5 {
+	writedata := []byte("Just some data or whatever")
+	for r := range 5 {
 		for i := range 10 {
-			err := system.AppendData(fmt.Sprintf("heck%d", i), []byte("Just some data or whatever"))
+			room := fmt.Sprintf("heck%d", i)
+			err := system.AppendData(room, writedata)
 			if err != nil {
 				t.Fatalf("Didn't expect any errors while appending rooms, got %s", err)
+			}
+			// Check to see if the data length matches what we expect
+			info, err := system.RoomInfo(room)
+			if err != nil {
+				t.Fatalf("Got error while querying room info: %s", err)
+			}
+			expectedLength := (r + 1) * len(writedata)
+			if info.Length != expectedLength {
+				t.Fatalf("Unexpected data length: %d vs %d", info.Length, expectedLength)
 			}
 		}
 	}
@@ -113,6 +125,7 @@ func TestActiveRoomLimit(t *testing.T) {
 	config := reasonableConfig("activelimit")
 	config.ActiveRoomLimit = 10
 	config.TotalRoomLimit = 100 // Must be larger so we don't run into it
+	config.IdleRoomTime = utils.Duration(time.Duration(time.Minute))
 	_, system := getSystemCustom(t, config)
 	for range 5 {
 		for i := range 10 {
@@ -127,6 +140,32 @@ func TestActiveRoomLimit(t *testing.T) {
 	_, is := err.(*ActiveRoomLimitError)
 	if !is {
 		t.Fatalf("Did not fail on too many active rooms!")
+	}
+	// Go dump nothing (not forced)
+	dumps := system.DumpStreams(false)
+	if len(dumps) != 0 {
+		t.Fatalf("Expected no dumps, got %d", len(dumps))
+	}
+	err = system.AppendData("finalroom", []byte("Death"))
+	_, is = err.(*ActiveRoomLimitError)
+	if !is {
+		t.Fatalf("Did not fail on too many active rooms (2)!")
+	}
+	// Go dump everything(forced)
+	dumps = system.DumpStreams(true)
+	if len(dumps) != 10 {
+		t.Fatalf("Expected 10 dumps, got %d", len(dumps))
+	}
+	err = system.AppendData("finalroom", []byte("Death"))
+	if err != nil {
+		t.Fatalf("Expected no failure on finalroom, got %s", err)
+	}
+	data, err := system.ReadData("finalroom", 0, -1, nil)
+	if err != nil {
+		t.Fatalf("Expected no failure on finalroom read, got %s", err)
+	}
+	if string(data) != "Death" {
+		t.Fatalf("Data written not identical: expected Death, got %s", string(data))
 	}
 }
 

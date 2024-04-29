@@ -45,6 +45,7 @@ type StreamResult struct {
 	Used        int    `json:"used"`
 	Limit       int    `json:"limit"`
 	NextStart   int    `json:"nextstart"`
+	DataLength  int    `json:"datalength"`
 }
 
 // The constants you return from the /constants endpoint,
@@ -132,6 +133,7 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 		Signalled:   max(info.ListenerCount, info.LastWriteListenerCount),
 		Used:        info.Length,
 		NextStart:   query.Start + len(rawdata),
+		DataLength:  len(rawdata),
 	}, nil
 }
 

@@ -16,6 +16,10 @@ import (
 	"github.com/gorilla/schema"
 )
 
+const (
+	Version = "0.1"
+)
+
 // Query the user sends in to get parts of a stream or whatever
 type StreamQuery struct {
 	Start       int  `schema:"start"`
@@ -46,8 +50,9 @@ type StreamResult struct {
 // The constants you return from the /constants endpoint,
 // received from the config (don't want to give out the whole config)
 type StreamConstants struct {
-	MaxStreamSize  int `json:"maxStreamSize"`
-	MaxSingleChunk int `json:"maxSingleChunk"`
+	MaxStreamSize  int    `json:"maxStreamSize"`
+	MaxSingleChunk int    `json:"maxSingleChunk"`
+	Version        string `json:"version"`
 }
 
 // All the data held onto for the duration of hosting the webstream
@@ -155,6 +160,7 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 		render.JSON(w, r, StreamConstants{
 			MaxStreamSize:  webctx.config.StreamDataLimit,
 			MaxSingleChunk: webctx.config.SingleDataLimit,
+			Version:        Version,
 		})
 	})
 

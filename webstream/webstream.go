@@ -2,6 +2,7 @@ package webstream
 
 import (
 	"context"
+	//"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -12,7 +13,7 @@ import (
 	"github.com/randomouscrap98/goldmonolith/utils"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/render"
+	//"github.com/go-chi/render"
 	"github.com/gorilla/schema"
 )
 
@@ -157,24 +158,24 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 	r := chi.NewRouter()
 
 	r.Get("/constants", func(w http.ResponseWriter, r *http.Request) {
-		render.JSON(w, r, StreamConstants{
+		utils.RespondJson(StreamConstants{
 			MaxStreamSize:  webctx.config.StreamDataLimit,
 			MaxSingleChunk: webctx.config.SingleDataLimit,
 			Version:        Version,
-		})
+		}, w, nil)
 	})
 
 	r.Get("/{room}", func(w http.ResponseWriter, r *http.Request) {
 		result, err := webctx.GetStreamResult(w, r)
 		if err == nil {
-			render.PlainText(w, r, result.Data)
+			utils.RespondPlaintext([]byte(result.Data), w)
 		}
 	})
 
 	r.Get("/{room}/json", func(w http.ResponseWriter, r *http.Request) {
 		result, err := webctx.GetStreamResult(w, r)
 		if err == nil {
-			render.JSON(w, r, result)
+			utils.RespondJson(result, w, nil)
 		}
 	})
 

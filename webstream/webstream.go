@@ -175,11 +175,18 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 	r.Post("/{room}", func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, int64(webctx.config.SingleDataLimit))
 		room := chi.URLParam(r, "room")
+		// Don't allow posts to readonly rooms
+		_, err := webctx.obfuscator.GetFromObfuscatedKey(room)
+		if err == nil {
+			log.Printf("Attempted to post to readonly room: %s", room)
+			http.Error(w, "Attempted to post to readonly room", http.StatusBadRequest)
+			return
+		}
 		// We're safe to just "read all" since we've limited the body above
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("Read POST body error for room %s: %s\n", room, err)
-			http.Error(w, "", http.StatusBadRequest)
+			http.Error(w, "Can't read post body (maybe it's too long?)", http.StatusBadRequest)
 			return
 		}
 		err = webctx.webstreams.AppendData(room, data)

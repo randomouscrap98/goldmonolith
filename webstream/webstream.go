@@ -2,7 +2,6 @@ package webstream
 
 import (
 	"context"
-	//"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -13,12 +12,11 @@ import (
 	"github.com/randomouscrap98/goldmonolith/utils"
 
 	"github.com/go-chi/chi/v5"
-	//"github.com/go-chi/render"
 	"github.com/gorilla/schema"
 )
 
 const (
-	Version = "0.1"
+	Version = "0.1.1"
 )
 
 // Query the user sends in to get parts of a stream or whatever
@@ -46,6 +44,7 @@ type StreamResult struct {
 	Signalled   int    `json:"signalled"`
 	Used        int    `json:"used"`
 	Limit       int    `json:"limit"`
+	NextStart   int    `json:"nextstart"`
 }
 
 // The constants you return from the /constants endpoint,
@@ -132,6 +131,7 @@ func (wc *WebstreamContext) GetStreamResult(w http.ResponseWriter, r *http.Reque
 		Data:        string(rawdata), // This is expensive I think??
 		Signalled:   max(info.ListenerCount, info.LastWriteListenerCount),
 		Used:        info.Length,
+		NextStart:   query.Start + len(rawdata),
 	}, nil
 }
 

@@ -1,0 +1,269 @@
+.header::after {
+    content: "reimu";
+    white-space: pre;
+}
+
+/*Lumage 2016-17 [Updated 2017-07-16]*\
+/* Structural */
+body > * {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+input[name] {
+   background-color: white;
+   border: 1px solid #AAC;
+   padding: 0.1em;
+}
+
+input[type="file"] {
+   padding: 0;
+}
+
+.postform {
+    width: 38%;
+    min-width: 300px;
+    font-size: 0;
+}
+.postform > * {
+    display: block;
+    width: 100%;
+}
+.postform > [name=usernamekek], .postform > [name=tripfag] {
+    width: 50%;
+    display: inline-block;
+}
+
+.thread {
+    display: block;
+    overflow: hidden;
+    font-size: 1.4rem;
+}
+.thread a {
+    position: absolute;
+    width: 90%;
+    width: calc(100% - 5rem);
+    height: 3.4rem;
+    white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.thread time {
+    display: inline-block;
+    margin-top: 1.6rem;
+}
+.thread .firstpost {
+	display: none;
+	color: #444
+}
+.thread:hover .lastpost {
+	display: none;
+}
+.thread:hover .firstpost {
+	display: inline-block;
+}
+
+.posts {
+    margin-left: 1%;
+}
+.post {
+    display: table;
+    overflow: hidden;
+    margin-bottom: .25rem;
+    width: fit-content;
+    padding: .4rem;
+}
+.post .postinfo {
+    margin-bottom: .5rem;
+    display: block;
+}
+.post .content {
+    margin: .25rem;
+    white-space: pre-line;
+    display: block;
+    width: 100%;
+}
+.post .content p:first-of-type {
+	margin-top: 0;
+}
+.post .content p {
+	margin-bottom: 0;
+}
+.post img {
+    height: auto;
+    max-width: 18vw;
+    max-height: calc(100px + 18vw);
+    vertical-align: top;
+    margin: .25rem .5rem .25rem 0rem;
+    float: left;
+}
+.postimage {
+   float: left;
+   overflow: hidden;
+   background-color: rgba(0,0,0,0.05);
+   padding: 0.25rem;
+   margin-right: 0.35rem;
+}
+.postimage .directlink {
+   display: block;
+}
+.postimage img {
+   float: none;
+}
+.postinfo .references {
+    display: inline;
+    max-width: 2rem;
+    margin-left: .5rem;
+}
+
+
+/* Stylistic */
+body {
+    background-color: #EEF;
+}
+
+.header {
+    background-color: #E8E8F8;
+    font-family: monospace;
+    font-size: 1.2rem;
+    text-align: center;
+}
+.header h1 {
+    margin-bottom: .6rem;
+}
+
+.postform {
+    border: 1px solid #555;
+    background-color: #DDE;
+}
+.postform > input:not([type]) {
+    margin-bottom: .05rem;
+}
+.postform > textarea[name=shitcontent] {
+    height: 4rem;
+    resize: vertical;
+}
+
+.postform > input[type=submit] {
+    margin: 0px auto;
+    padding: .15rem;
+    max-width: 200px;
+}
+
+.thread {
+    padding: .2rem;
+    border: 2px outset #A8C;
+    background-color: #B9D;
+    font-family: Verdana, sans-serif;
+}
+.thread a:link, .thread a:visited {
+    color: #EFF;
+    text-decoration: none;
+    font-style: oblique;
+}
+.thread time {
+    font-family: Consolas, monospace;
+    font-size: 1.5rem;
+}
+.thread .posts {
+    color: #553;
+}
+.thread .posts::before {content: "("}.thread .posts::after {content: ")"}
+
+.post:first-of-type {
+    /* OP a goat */
+    box-sizing: border-box;
+    width: 100%;
+    background-color: #E3DFEF;
+}
+.post {
+    background-color: #DDE;
+}
+.post .postinfo {
+    margin-right: 1rem;
+}
+.post .username {
+    color: #350;
+}
+.post .trip {
+    color: #911;
+    font-weight: bold;
+}
+.post a.postlink {
+    color: #75E;
+}
+.post a.postlink::before {
+    content: "#";
+}
+.greentext {
+    color: #792;
+    /*color: #86d;*/
+}
+s-p {
+    background-color: #000;
+    color: #000;
+    display: inline;
+}
+s-p:hover {
+    color: #EEE;
+}
+.reference {
+    color: #A33;
+}
+.references .reference {
+    color: #A91;
+}
+.footer >* {
+   display: inline-block;
+}
+.footer a {
+   font-size: 0.8rem;
+   margin: 0.2em;
+}
+.about {
+    font-size: 0.6em;
+    opacity: 0.5;
+    float: right;
+}
+.about > * {
+    margin-right: 0.5em;
+}
+.imagelist img {
+   max-width: 75%;
+   max-height: 150px;
+   margin: 0.3rem;
+   border: 1px solid #AAA;
+   box-shadow: 1px 1px 2px #333;
+   vertical-align: middle;
+}
+.imagelist img:hover {
+   border-color: blue;
+}
+input[data-admin] {
+   background-color: #e5ffd3;
+}
+.hiddencontrols {
+   opacity: 0;
+   /*visibility: hidden;*/
+   display: block;
+   position: absolute;
+   bottom: 0;
+   left: 0;
+   padding: 0.2em;
+   font-size: 0.8rem;
+   transition: all 0.3s ease;
+}
+.hiddencontrols input {
+   max-width: 50%;
+}
+.hiddencontrolcontainer:hover .hiddencontrols { 
+   opacity: 1;
+}
+.hiddencontrols form {
+   margin: 0;
+   padding: 0;
+}
+.deleteform {
+   float: right;
+   margin: 0;
+}

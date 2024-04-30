@@ -53,7 +53,12 @@ func (wc *KlandContext) RunBackground(cancel context.Context, wg *sync.WaitGroup
 	wg.Done()
 }
 
-func (kctx *KlandContext) GetHandler() http.Handler {
+func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
-	return r
+	// --- Static files -----
+	err := utils.FileServer(r, "/", kctx.config.StaticFilePath)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }

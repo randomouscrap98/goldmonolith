@@ -156,7 +156,7 @@ func (wc *WebstreamContext) RunBackground(cancel context.Context, wg *sync.WaitG
 	}()
 }
 
-func (webctx *WebstreamContext) GetHandler() http.Handler {
+func (webctx *WebstreamContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
 
 	r.Get("/constants", func(w http.ResponseWriter, r *http.Request) {
@@ -208,5 +208,5 @@ func (webctx *WebstreamContext) GetHandler() http.Handler {
 		}
 	})
 
-	return r
+	return r, nil
 }

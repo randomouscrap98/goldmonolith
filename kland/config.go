@@ -13,14 +13,16 @@ const (
 )
 
 type Config struct {
-	DatabasePath string // path to database
-	ImagePath    string // path to images
+	DatabasePath   string // path to database
+	ImagePath      string // path to images
+	StaticFilePath string // path to all static files
 }
 
 func GetDefaultConfig_Toml() string {
 	return fmt.Sprintf(`# Config auto-generated on %s
-DatabasePath="kland/kland.db"   # Path to database (just data, not images)
-ImagePath="kland/images"        # Path to image folder
+DatabasePath="data/kland/kland.db"   # Path to database (just data, not images)
+ImagePath="data/kland/images"        # Path to image folder
+StaticFilePath="static/kland"   # Path to static files (currently only valid in monolith)
 `, time.Now().Format(time.RFC3339))
 }
 

@@ -8,5 +8,5 @@ import (
 
 type WebService interface {
 	RunBackground(context.Context, *sync.WaitGroup)
-	GetHandler() http.Handler
+	GetHandler() (http.Handler, error)
 }

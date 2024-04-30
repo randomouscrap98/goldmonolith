@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/httprate"
 
 	"github.com/randomouscrap98/goldmonolith/utils"
 )
@@ -41,6 +43,10 @@ func NewKlandContext(config *Config) (*KlandContext, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = os.MkdirAll(config.TextPath, 0750)
+	if err != nil {
+		return nil, err
+	}
 	// Now we're good to go
 	return &KlandContext{
 		config: config,
@@ -55,6 +61,19 @@ func (wc *KlandContext) RunBackground(cancel context.Context, wg *sync.WaitGroup
 
 func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
+
+	// Upload endpoints, need extra limiting
+	r.Group(func(r chi.Router) {
+		r.Use(httprate.LimitByIP(kctx.config.UploadPerInterval, time.Duration(kctx.config.UploadLimitInterval)))
+
+		r.Post("/uploadtext", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("."))
+		})
+		r.Post("/uploadimage", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("."))
+		})
+	})
+
 	// --- Static files -----
 	err := utils.FileServer(r, "/", kctx.config.StaticFilePath)
 	if err != nil {

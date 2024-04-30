@@ -19,6 +19,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	//"github.com/go-chi/httprate"
 
+	"github.com/randomouscrap98/goldmonolith/kland"
 	"github.com/randomouscrap98/goldmonolith/webstream"
 )
 
@@ -135,6 +136,7 @@ func main() {
 
 	// --- Which services to host ----
 	mounts["/stream"] = func() (WebService, error) { return webstream.NewWebstreamContext(config.Webstream) }
+	mounts["/kland"] = func() (WebService, error) { return kland.NewKlandContext(config.Kland) }
 
 	// --- Host all services ---
 	for k, f := range mounts {

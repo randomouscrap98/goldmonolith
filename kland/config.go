@@ -19,8 +19,8 @@ const (
 
 type Config struct {
 	DatabasePath        string         // path to database
-	ImagePath           string         // path to images
-	TextPath            string         // path to text data (animations?)
+	ImagePath           string         // path to images on local filesystem
+	TextPath            string         // path to text data (animations?) on local filesystem
 	StaticFilePath      string         // path to all static files
 	TemplatePath        string         // path to all kland templates
 	UploadPerInterval   int            // Amount of uploads (any) allowed per timespan

@@ -180,7 +180,16 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 	})
 
 	// --- Static files -----
-	err := utils.FileServer(r, "/", kctx.config.StaticFilePath)
+	var err error
+	err = utils.FileServer(r, "/i/", kctx.config.ImagePath)
+	if err != nil {
+		return nil, err
+	}
+	err = utils.FileServer(r, "/a", kctx.config.TextPath)
+	if err != nil {
+		return nil, err
+	}
+	err = utils.FileServer(r, "/", kctx.config.StaticFilePath)
 	if err != nil {
 		return nil, err
 	}

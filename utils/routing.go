@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+const (
+	DefaultCacheControl = "public, max-age=15552000" // 6 months
+)
+
 // Adds a robots.txt that disallows everything to the router. It of course
 // is served at root. It might be better to include a robots.txt in the
 // static file list to give more control, however...
@@ -36,6 +40,7 @@ func FileServerRaw(r chi.Router, path string, root http.FileSystem) {
 		rctx := chi.RouteContext(r.Context())
 		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
 		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
+		w.Header().Set("Cache-Control", DefaultCacheControl)
 		fs.ServeHTTP(w, r)
 	})
 }

@@ -1,0 +1,71 @@
+<html>
+
+<head>
+  {{template "header.tmpl" .}}
+</head>
+
+<body>
+
+  <div class="header">
+    <h1>{{.thread.Subject}}</h1>
+    <!-- NOTE 2024-04-30: There are apparently no errors ever set, as in
+        the field isn't even mentioned. Mmm... idk -->
+    <div class="errors">
+      {{range .errors}}
+      <p class="error">{{.}}</p>
+      {{end}}
+    </div>
+    <div class="nav">
+      <a href="{{.root}}/">Thread list</a>
+    </div>
+  </div>
+
+  <div class="posts">
+    {{range .posts}}
+    <div class="post" id="p{{.Pid}}">
+      <div class="postinfo">
+          <span class="username">{{.RealUsername}}</span>
+          <span class="trip">{{.Trip}}</span>
+          <time datetime="{{.CreatedOn}}">{{.CreatedOn}}</time>
+          <a href="{{.Link}}" class="postlink">{{.Pid}}</a>
+      </div>
+      {{if .HasImage}}
+      <div class="postimage">
+          <a class="directlink" href="{{.ImageLink}}">{{.ImageLink}}</a>
+          <img src="{{.ImageLink}}">
+      </div>
+      {{end}}
+      <span class="content" data-pid="{{.Pid}}">{{RawHtml .Content}}</span>
+      {{if $.isAdmin}}
+      <form action="{{.root}}/admin" method="post" class="deleteForm"
+          onsubmit="return confirm('Deletion is permanent and data is unrecoverable. Really delete?');">
+          <input type="hidden" name="adminid" value="{{$.adminID}}">
+          <input type="hidden" name="action" value="deletepost">
+          <input type="hidden" name="pid" value="{{$.pid}}">
+          <input type="hidden" name="redirect" value="{{$.requestUri}}">
+          <input type="submit" value="Delete">
+      </form>
+      {{if not $.isBanned}}
+      <form action="{{.root}}/admin" method="post" class="blockForm"
+          onsubmit="return confirm('Bans are permenent. Are you sure you want to ban IP {{.IpAddress}}?');">
+          <input type="hidden" name="adminid" value="{{$.adminID}}">
+          <input type="hidden" name="action" value="blockip">
+          <input type="hidden" name="ip" value="{{.IpAddress}}">
+          <input type="hidden" name="redirect" value="{{$.requestUri}}">
+          <input type="submit" value="Block IP">
+      </form>
+      {{end}}
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+
+  {{template "postform.tmpl" .}}
+
+  <div class="footer">
+    {{template "footer.tmpl" .}}
+  </div>
+
+</body>
+
+</html>

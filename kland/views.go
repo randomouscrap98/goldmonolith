@@ -34,18 +34,17 @@ type ThreadView struct {
 
 // Convert db post to view
 func ConvertPost(post Post, config *Config) PostView {
-	sha512 := sha512.New()
 
 	trip := utils.StrGetOrDefault(post.tripraw, "")
 	if trip != "" {
-		hashed := sha512.Sum([]byte(trip))
-		trip = base64.StdEncoding.EncodeToString(hashed)[:10]
+		hashed := sha512.Sum512([]byte(trip))
+		trip = base64.StdEncoding.EncodeToString(hashed[:])[:10]
 	}
 
 	realUsername := utils.StrGetOrDefault(post.username, "Anonymous")
 
 	link := fmt.Sprintf("%s/thread/%d#p%d", config.RootPath, post.tid, post.pid)
-	imageLink := fmt.Sprintf("/i/%s", utils.StrGetOrDefault(post.image, "UNDEFINED"))
+	imageLink := fmt.Sprintf("%s/i/%s", config.RootPath, utils.StrGetOrDefault(post.image, "UNDEFINED"))
 
 	return PostView{
 		Tid:          post.tid,

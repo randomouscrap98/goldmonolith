@@ -1,7 +1,7 @@
 package kland
 
 import (
-	"log"
+	"fmt"
 	"time"
 
 	"github.com/randomouscrap98/goldmonolith/utils"
@@ -85,25 +85,32 @@ func parseTimePtr(tstr *string) time.Time {
 	return parseTime(utils.Unpointer(tstr, ""))
 }
 
-// Pull ALL threads from the db.
-func GetAllThreads(config *Config) ([]Thread, error) {
+// Pull threads from the db. Will pull ALL threads if id list is empty
+func GetThreads(config *Config, ids []int64) ([]Thread, error) {
 	db, err := config.OpenDb()
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
+	extraWhere := ""
+	anyIds := utils.SliceToAny(ids)
+
+	if len(ids) > 0 {
+		extraWhere = fmt.Sprintf("AND t.tid IN (%s)", utils.SliceToPlaceholder(ids))
+	}
+
 	// The appending to this might suck idk
 	result := make([]Thread, 0)
 
 	// Go get the main data
-	rows, err := db.Query(`
+	rows, err := db.Query(fmt.Sprintf(`
 SELECT t.tid, t.created, t.subject, t.deleted, t.hash, COUNT(p.pid), MAX(p.created) 
 FROM threads t LEFT JOIN posts p ON t.tid = p.tid
-WHERE t.deleted = 0
+WHERE t.deleted = 0 %s
 GROUP BY t.tid
 ORDER BY t.tid DESC
-`)
+`, extraWhere), anyIds...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +126,39 @@ ORDER BY t.tid DESC
 		result = append(result, t)
 	}
 
-	log.Printf("Threads: %d", len(result))
+	return result, nil
+}
+
+func GetPosts(tid int64, config *Config) ([]Post, error) {
+	db, err := config.OpenDb()
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	result := make([]Post, 0)
+
+	// Go get the main data
+	rows, err := db.Query(`
+SELECT pid, tid, created, content, options, ipaddress, username, tripraw, image
+FROM posts
+WHERE tid = ?
+ORDER BY pid
+`, tid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		p := Post{}
+		err := rows.Scan(&p.pid, &p.tid, &p.created, &p.content, &p.options,
+			&p.ipaddress, &p.username, &p.tripraw, &p.image)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, p)
+	}
 
 	return result, nil
 }

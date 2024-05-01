@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 	//"fmt"
@@ -56,7 +57,9 @@ func NewKlandContext(config *Config) (*KlandContext, error) {
 	}
 	// For kland, we initialize the templates first because we don't really need
 	// hot reloading (also it's just better for performance... though memory usage...
-	templates, err := template.New("alltemplates").Funcs(template.FuncMap{}).ParseGlob(filepath.Join(config.TemplatePath, "*.tmpl"))
+	templates, err := template.New("alltemplates").Funcs(template.FuncMap{
+		"RawHtml": func(c string) template.HTML { return template.HTML(c) },
+	}).ParseGlob(filepath.Join(config.TemplatePath, "*.tmpl"))
 
 	if err != nil {
 		return nil, err
@@ -109,21 +112,59 @@ func (kctx *KlandContext) runTemplate(name string, w http.ResponseWriter, data a
 func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		data := kctx.GetDefaultData(r)
-		// Need to get threads from db, is it really ALL of them? Yeesh...
-		threads, err := GetAllThreads(kctx.config)
-		if err != nil {
-			log.Printf("ERROR RETRIEVING THREADS: %s", err)
-			http.Error(w, "Error retrieving threads", http.StatusInternalServerError)
-			return
-		}
-		threadViews := make([]ThreadView, len(threads))
-		for i := range threads {
-			threadViews[i] = ConvertThread(threads[i], kctx.config)
-		}
-		data["threads"] = threadViews
-		kctx.runTemplate("index.tmpl", w, data)
+	// Should probably limit the reads...
+	r.Group(func(r chi.Router) {
+		r.Use(httprate.LimitByIP(kctx.config.VisitPerInterval, time.Duration(kctx.config.VisitLimitInterval)))
+
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			data := kctx.GetDefaultData(r)
+			// Need to get threads from db, is it really ALL of them? Yeesh...
+			threads, err := GetThreads(kctx.config, nil)
+			if err != nil {
+				log.Printf("ERROR RETRIEVING THREADS: %s", err)
+				http.Error(w, "Error retrieving threads", http.StatusInternalServerError)
+				return
+			}
+			threadViews := make([]ThreadView, len(threads))
+			for i := range threads {
+				threadViews[i] = ConvertThread(threads[i], kctx.config)
+			}
+			data["threads"] = threadViews
+			kctx.runTemplate("index.tmpl", w, data)
+		})
+
+		r.Get("/thread/{id}", func(w http.ResponseWriter, r *http.Request) {
+			data := kctx.GetDefaultData(r)
+			idraw := chi.URLParam(r, "id")
+			id, err := strconv.ParseInt(idraw, 10, 64)
+			if err != nil {
+				http.Error(w, "Bad file ID format", http.StatusBadRequest)
+				return
+			}
+			threads, err := GetThreads(kctx.config, []int64{id})
+			if err != nil {
+				log.Printf("ERROR RETRIEVING THREADS: %s", err)
+				http.Error(w, "Error retrieving threads", http.StatusInternalServerError)
+				return
+			}
+			if len(threads) != 1 {
+				http.Error(w, "Thread not found", http.StatusNotFound)
+				return
+			}
+			posts, err := GetPosts(id, kctx.config)
+			if err != nil {
+				log.Printf("ERROR RETRIEVING POSTS: %s", err)
+				http.Error(w, "Error retrieving posts", http.StatusInternalServerError)
+				return
+			}
+			postViews := make([]PostView, len(posts))
+			for i := range posts {
+				postViews[i] = ConvertPost(posts[i], kctx.config)
+			}
+			data["thread"] = ConvertThread(threads[0], kctx.config)
+			data["posts"] = postViews
+			kctx.runTemplate("thread.tmpl", w, data)
+		})
 	})
 
 	// Upload endpoints, need extra limiting

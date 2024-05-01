@@ -22,6 +22,7 @@ type Config struct {
 	ImagePath           string         // path to images
 	TextPath            string         // path to text data (animations?)
 	StaticFilePath      string         // path to all static files
+	TemplatePath        string         // path to all kland templates
 	UploadPerInterval   int            // Amount of uploads (any) allowed per timespan
 	UploadLimitInterval utils.Duration // interval for upload limits
 	AdminId             string         // Admin key
@@ -36,13 +37,14 @@ func GetDefaultConfig_Toml() string {
 	}
 	randomHex := hex.EncodeToString(randomUser)
 	return fmt.Sprintf(`# Config auto-generated on %s
-DatabasePath="data/kland/kland.db"   # Path to database (just data, not images)
-ImagePath="data/kland/images"        # Path to image folder
-StringPath="data/kland/text"         # Path to text folder (animations?)
-StaticFilePath="static/kland"        # Path to static files (currently only valid in monolith)
-UploadPerInterval=20                 # Amount of uploads (any) per interval
-UploadLimitInterval="1m"             # Interval for upload limit
-AdminId="%s"                         # Admin key (randomly generated)
+DatabasePath="data/kland/kland.db"    # Path to database (just data, not images)
+ImagePath="data/kland/images"         # Path to image folder
+StringPath="data/kland/text"          # Path to text folder (animations?)
+StaticFilePath="static/kland"         # Path to static files (currently only valid in monolith)
+TemplatePath="static/kland/templates" # Path to all template files
+UploadPerInterval=20                  # Amount of uploads (any) per interval
+UploadLimitInterval="1m"              # Interval for upload limit
+AdminId="%s"                          # Admin key (randomly generated)
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

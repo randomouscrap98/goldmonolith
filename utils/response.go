@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 )
 
 func FinalError(err error, w http.ResponseWriter) {
@@ -25,4 +26,12 @@ func RespondJson(v any, w http.ResponseWriter, extra func(*json.Encoder)) {
 	}
 	err := encoder.Encode(v)
 	FinalError(err, w)
+}
+
+func DeleteCookie(name string, w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:    name,
+		Value:   "",
+		Expires: time.Now().Add(-time.Hour),
+	})
 }

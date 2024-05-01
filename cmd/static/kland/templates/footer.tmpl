@@ -1,0 +1,12 @@
+<form action="{{.root}}/settings" method="post" class="settingsform">
+   <input name="poststyle" value="{{.postStyle}}" placeholder="Style from post#">
+   <input name="adminid" value="{{.adminId}}" {{if .isAdmin}}data-admin{{end}} placeholder="Admin ID">
+   <input type="hidden" name="redirect" value="{{.requestUri}}">
+   <input type="submit" value="Set">
+</form>
+<a href="{{.root}}/image">Upload Images Without Posting</a>
+<div class="about">
+   <span>haloopdy 2017-2024</span>
+   <span class="version">V.{{.appversion}}</span>
+   <span class="info">GOMEMLIMIT: {{.runtimeinfo.GoMemLimit}}</span>
+</div>

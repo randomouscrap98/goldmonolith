@@ -33,7 +33,7 @@ type ThreadView struct {
 }
 
 // Convert db post to view
-func ConvertPost(post Post) PostView {
+func ConvertPost(post Post, config *Config) PostView {
 	sha512 := sha512.New()
 
 	trip := utils.StrGetOrDefault(post.tripraw, "")
@@ -44,14 +44,14 @@ func ConvertPost(post Post) PostView {
 
 	realUsername := utils.StrGetOrDefault(post.username, "Anonymous")
 
-	link := fmt.Sprintf("/thread/%d#p%d", post.tid, post.pid)
+	link := fmt.Sprintf("%s/thread/%d#p%d", config.RootPath, post.tid, post.pid)
 	imageLink := fmt.Sprintf("/i/%s", utils.StrGetOrDefault(post.image, "UNDEFINED"))
 
 	return PostView{
 		Tid:          post.tid,
 		Pid:          post.pid,
 		Content:      post.content,
-		CreatedOn:    post.created,
+		CreatedOn:    parseTime(post.created),
 		IPAddress:    post.ipaddress,
 		Trip:         trip,
 		RealUsername: realUsername,
@@ -63,13 +63,13 @@ func ConvertPost(post Post) PostView {
 }
 
 // Convert db thread to ThreadView. ALL fields are set
-func ConvertThread(thread Thread) ThreadView {
+func ConvertThread(thread Thread, config *Config) ThreadView {
 	return ThreadView{
 		Tid:        thread.tid,
 		Subject:    thread.subject,
-		CreatedOn:  thread.created,
-		PostCount:  thread.postCount,  //x.Posts.Count(),
-		LastPostOn: thread.lastPostOn, //LastPostOn : x.Posts.Max(x => (DateTime?)x.created) ?? new DateTime(0),
-		Link:       fmt.Sprintf("/thread/%d", thread.tid),
+		CreatedOn:  parseTime(thread.created),
+		PostCount:  thread.postCount,                //x.Posts.Count(),
+		LastPostOn: parseTimePtr(thread.lastPostOn), //LastPostOn : x.Posts.Max(x => (DateTime?)x.created) ?? new DateTime(0),
+		Link:       fmt.Sprintf("%s/thread/%d", config.RootPath, thread.tid),
 	}
 }

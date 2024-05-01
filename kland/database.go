@@ -1,6 +1,7 @@
 package kland
 
 import (
+	"log"
 	"time"
 
 	"github.com/randomouscrap98/goldmonolith/utils"
@@ -8,17 +9,18 @@ import (
 
 const (
 	DatabaseVersion = "1"
+	TimeFormat      = "2006-01-02 15:04:05" // Don't bother with the milliseconds
 )
 
 type Ban struct {
 	range_  string //key?
-	created time.Time
+	created string // FORMAT: 2023-01-02 HH:MM:SS.MS
 	note    *string
 }
 
 type Post struct {
-	pid       int //key?
-	created   time.Time
+	pid       int    //key?
+	created   string //time.Time
 	content   string
 	options   string
 	ipaddress string
@@ -29,15 +31,15 @@ type Post struct {
 }
 
 type Thread struct {
-	tid     int //key?
-	created time.Time
+	tid     int    //key?
+	created string //time.Time
 	subject string
 	deleted bool
 	hash    *string
 
 	// These are fields we query specially, but are still part of the thread query
 	postCount  int
-	lastPostOn time.Time
+	lastPostOn *string //time.Time
 }
 
 func CreateTables(config *Config) error {
@@ -70,6 +72,19 @@ func CreateTables(config *Config) error {
 	return utils.CreateTables_VersionedDb(allSql, config, DatabaseVersion)
 }
 
+func parseTime(tstr string) time.Time {
+	t, err := time.Parse(TimeFormat, tstr)
+	if err != nil {
+		// Horrible hack, I don't care. Kland sucks lmao
+		return time.Date(1900, 01, 01, 0, 0, 0, 0, time.UTC)
+	}
+	return t
+}
+
+func parseTimePtr(tstr *string) time.Time {
+	return parseTime(utils.Unpointer(tstr, ""))
+}
+
 // Pull ALL threads from the db.
 func GetAllThreads(config *Config) ([]Thread, error) {
 	db, err := config.OpenDb()
@@ -83,22 +98,28 @@ func GetAllThreads(config *Config) ([]Thread, error) {
 
 	// Go get the main data
 	rows, err := db.Query(`
-SELECT t.*,COUNT(p.pid),MAX(p.created) 
+SELECT t.tid, t.created, t.subject, t.deleted, t.hash, COUNT(p.pid), MAX(p.created) 
 FROM threads t LEFT JOIN posts p ON t.tid = p.tid
-WHERE t.deleted = 0`)
+WHERE t.deleted = 0
+GROUP BY t.tid
+ORDER BY t.tid DESC
+`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		thisThread := Thread{}
-		err := rows.Scan()
+		t := Thread{}
+		err := rows.Scan(&t.tid, &t.created, &t.subject, &t.deleted, &t.hash,
+			&t.postCount, &t.lastPostOn)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, thisThread)
+		result = append(result, t)
 	}
+
+	log.Printf("Threads: %d", len(result))
 
 	return result, nil
 }

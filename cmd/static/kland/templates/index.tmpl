@@ -1,0 +1,43 @@
+<html>
+
+<head>
+  {{template "header.tmpl" .}}
+</head>
+
+<body>
+
+  <div class="header">
+    <h1>i'm soooo tired</h1>
+    <div class="errors"></div>
+  </div>
+
+  {{template "postform.tmpl" .}}
+
+  <div class="threads">
+    {{range .threads}}
+    <div class="thread">
+      <a href="{{.Link}}">{{.Subject}}</a>
+      <time class="lastpost" datetime="{{.LastPostOn}}">{{.LastPostOn}}</time>
+      <time class="firstpost" datetime="{{.CreatedOn}}">{{.CreatedOn}}</time>
+      <span class="posts">P:{{.PostCount}}</span>
+      {{if $.isAdmin}}
+      <form action="{{$.root}}/admin" method="post" class="deleteForm"
+      onsubmit="return confirm('Deleting a thread is difficult to undo. Really delete?');">
+        <input type="hidden" name="adminid" value="{{$.adminID}}">
+        <input type="hidden" name="action" value="deletethread">
+        <input type="hidden" name="tid" value="{{.Tid}}">
+        <input type="hidden" name="redirect" value="{{$.requestUri}}">
+        <input type="submit" value="Delete">
+      </form>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+
+  <div class="footer">
+    {{template "footer.tmpl" .}}
+  </div>
+
+</body>
+
+</html>

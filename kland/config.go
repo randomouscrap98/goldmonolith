@@ -27,6 +27,7 @@ type Config struct {
 	UploadLimitInterval utils.Duration // interval for upload limits
 	AdminId             string         // Admin key
 	CookieExpire        utils.Duration // Expiration of cookie (admin cookie?)
+	RootPath            string         // The root path to kland
 }
 
 func GetDefaultConfig_Toml() string {
@@ -39,12 +40,14 @@ func GetDefaultConfig_Toml() string {
 	return fmt.Sprintf(`# Config auto-generated on %s
 DatabasePath="data/kland/kland.db"    # Path to database (just data, not images)
 ImagePath="data/kland/images"         # Path to image folder
-StringPath="data/kland/text"          # Path to text folder (animations?)
+TextPath="data/kland/text"            # Path to text folder (animations?)
 StaticFilePath="static/kland"         # Path to static files (currently only valid in monolith)
 TemplatePath="static/kland/templates" # Path to all template files
 UploadPerInterval=20                  # Amount of uploads (any) per interval
 UploadLimitInterval="1m"              # Interval for upload limit
 AdminId="%s"                          # Admin key (randomly generated)
+CookieExpire="8760h"                  # Cookie expiration (for settings/etc)
+RootPath="/kland"                     # Root path for kland (if at root, leave BLANK)
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

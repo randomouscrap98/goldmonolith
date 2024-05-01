@@ -88,30 +88,23 @@ func (kctx *KlandContext) GetDefaultData(r *http.Request) map[string]any {
 	}
 	rinfo := utils.GetRuntimeInfo()
 	result := make(map[string]any)
+	result["root"] = kctx.config.RootPath
 	result["appversion"] = Version
 	result[AdminIdKey] = thisadminid
 	result[IsAdminKey] = thisadminid == kctx.config.AdminId
 	result[PostStyleKey] = style
 	result["runtimeInfo"] = rinfo
+	result["requestUri"] = r.URL.RequestURI()
 	return result
 }
 
-// func (kctx *KlandContext) InitializeTemplate(files []string) (*template.Template, error) {
-//   filepaths := make([]string, len(files))
-//   for i := range files {
-//     filepaths[i] = filepath.Join(kctx.config.TemplatePath, files[i])
-//   }
-//   return template.New(files[0]).Funcs(template.FuncMap{
-//   }).ParseFiles(filepaths...)
-// }
-//
-// func (kctx *KlandContext) InitializeIndexTemplate() (*template.Template, error) {
-//   return kctx.InitializeTemplate([]string {
-//     "index.tmpl",
-//     "header.tmpl",
-//     "footer.tmpl",
-//   })
-// }
+func (kctx *KlandContext) runTemplate(name string, w http.ResponseWriter, data any) {
+	err := kctx.templates.ExecuteTemplate(w, name, data)
+	if err != nil {
+		log.Printf("ERROR: can't load template: %s", err)
+		http.Error(w, "Template load error (internal server error!)", http.StatusInternalServerError)
+	}
+}
 
 func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
@@ -121,14 +114,16 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 		// Need to get threads from db, is it really ALL of them? Yeesh...
 		threads, err := GetAllThreads(kctx.config)
 		if err != nil {
+			log.Printf("ERROR RETRIEVING THREADS: %s", err)
 			http.Error(w, "Error retrieving threads", http.StatusInternalServerError)
 			return
 		}
 		threadViews := make([]ThreadView, len(threads))
 		for i := range threads {
-			threadViews[i] = ConvertThread(threads[i])
+			threadViews[i] = ConvertThread(threads[i], kctx.config)
 		}
 		data["threads"] = threadViews
+		kctx.runTemplate("index.tmpl", w, data)
 	})
 
 	// Upload endpoints, need extra limiting

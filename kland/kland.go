@@ -16,7 +16,11 @@ import (
 )
 
 const (
-	Version = "0.1.0"
+	Version         = "0.1.0"
+	AdminIdKey      = "adminId"
+	IsAdminKey      = "isAdmin"
+	PostStyleKey    = "postStyle"
+	OrphanedPrepend = "Internal_OrphanedImages"
 )
 
 type KlandContext struct {
@@ -57,6 +61,27 @@ func (wc *KlandContext) RunBackground(cancel context.Context, wg *sync.WaitGroup
 	// A stub, do nothing. But you HAVE to exit the wait group!!
 	log.Printf("No background tasks for kland")
 	wg.Done()
+}
+
+func (kctx *KlandContext) GetDefaultData(r *http.Request) map[string]any {
+	admincookie, err := r.Cookie(AdminIdKey)
+	thisadminid := ""
+	if err == nil {
+		thisadminid = admincookie.Value
+	}
+	stylecookie, err := r.Cookie(PostStyleKey)
+	style := ""
+	if err == nil {
+		style = stylecookie.Value
+	}
+	rinfo := utils.GetRuntimeInfo()
+	result := make(map[string]any)
+	result["appversion"] = Version
+	result[AdminIdKey] = thisadminid
+	result[IsAdminKey] = thisadminid == kctx.config.AdminId
+	result[PostStyleKey] = style
+	result["runtimeInfo"] = rinfo
+	return result
 }
 
 func (kctx *KlandContext) GetHandler() (http.Handler, error) {

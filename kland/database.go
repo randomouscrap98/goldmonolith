@@ -34,6 +34,10 @@ type Thread struct {
 	subject string
 	deleted bool
 	hash    *string
+
+	// These are fields we query specially, but are still part of the thread query
+	postCount  int
+	lastPostOn time.Time
 }
 
 func CreateTables(config *Config) error {
@@ -64,4 +68,37 @@ func CreateTables(config *Config) error {
 		`create index if not exists idx_posts_tid on posts(tid);`,
 	}
 	return utils.CreateTables_VersionedDb(allSql, config, DatabaseVersion)
+}
+
+// Pull ALL threads from the db.
+func GetAllThreads(config *Config) ([]Thread, error) {
+	db, err := config.OpenDb()
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	// The appending to this might suck idk
+	result := make([]Thread, 0)
+
+	// Go get the main data
+	rows, err := db.Query(`
+SELECT t.*,COUNT(p.pid),MAX(p.created) 
+FROM threads t LEFT JOIN posts p ON t.tid = p.tid
+WHERE t.deleted = 0`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		thisThread := Thread{}
+		err := rows.Scan()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, thisThread)
+	}
+
+	return result, nil
 }

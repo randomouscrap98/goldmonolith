@@ -7,6 +7,16 @@ import (
 	"strings"
 )
 
+// Adds a robots.txt that disallows everything to the router. It of course
+// is served at root. It might be better to include a robots.txt in the
+// static file list to give more control, however...
+func AngryRobots(r *chi.Mux) {
+	r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte("User-agent: *\nDisallow: /\n"))
+	})
+}
+
 // Taken from: https://github.com/go-chi/chi/blob/master/_examples/fileserver/main.go
 // FileServer conveniently sets up a http.FileServer handler to serve
 // static files from a http.FileSystem.

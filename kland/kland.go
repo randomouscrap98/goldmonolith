@@ -2,6 +2,7 @@ package kland
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -10,10 +11,10 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	//"fmt"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/httprate"
+	"github.com/gorilla/schema"
 
 	"github.com/randomouscrap98/goldmonolith/utils"
 )
@@ -25,10 +26,12 @@ const (
 	PostStyleKey    = "postStyle"
 	OrphanedPrepend = "Internal_OrphanedImages"
 	LongCookie      = 365 * 24 * 60 * 60
+	DefaultIpp      = 20
 )
 
 type KlandContext struct {
 	config    *Config
+	decoder   *schema.Decoder
 	templates *template.Template
 }
 
@@ -70,6 +73,7 @@ func NewKlandContext(config *Config) (*KlandContext, error) {
 	return &KlandContext{
 		config:    config,
 		templates: templates,
+		decoder:   schema.NewDecoder(),
 	}, nil
 }
 
@@ -115,6 +119,47 @@ func reportDbError(err error, w http.ResponseWriter) {
 	http.Error(w, "Error opening database", http.StatusInternalServerError)
 }
 
+func checkSingleThread(threads []Thread, err error, w http.ResponseWriter) bool {
+	if err != nil {
+		log.Printf("ERROR RETRIEVING THREADS: %s", err)
+		http.Error(w, "Error retrieving thread", http.StatusInternalServerError)
+		return false
+	}
+	if len(threads) < 1 {
+		http.Error(w, "Thread not found", http.StatusNotFound)
+		return false
+	}
+	return true
+}
+
+type GetImageQuery struct {
+	Bucket string `schema:"bucket"`
+	AsJSON bool   `schema:"asJSON"`
+	Page   int    `schema:"page"`
+	IPP    int    `schema:"ipp"`
+	View   string `schema:"view"`
+}
+
+func ParseImageQuery(kctx *KlandContext, r *http.Request) (GetImageQuery, error) {
+	params := r.URL.Query()
+	iquery := GetImageQuery{}
+	err := kctx.decoder.Decode(&iquery, params)
+	if err != nil {
+		return iquery, err
+	}
+	// This uses the cookie IF it exists, otherwise it uses the query value
+	iquery.IPP = utils.GetCookieOrDefault("ipp", r, iquery.IPP, func(s string) (int, error) {
+		return strconv.Atoi(s)
+	})
+	if iquery.Page < 1 {
+		iquery.Page = 1
+	}
+	if iquery.IPP <= 0 {
+		iquery.IPP = DefaultIpp
+	}
+	return iquery, nil
+}
+
 func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
 
@@ -152,21 +197,14 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				return
 			}
 			defer db.Close()
-			data := kctx.GetDefaultData(r)
 			idraw := chi.URLParam(r, "id")
 			tid, err := strconv.ParseInt(idraw, 10, 64)
 			if err != nil {
 				http.Error(w, "Bad file ID format", http.StatusBadRequest)
 				return
 			}
-			threads, err := GetThreadById(db, []int64{tid})
-			if err != nil {
-				log.Printf("ERROR RETRIEVING THREADS: %s", err)
-				http.Error(w, "Error retrieving thread", http.StatusInternalServerError)
-				return
-			}
-			if len(threads) != 1 {
-				http.Error(w, "Thread not found", http.StatusNotFound)
+			threads, err := GetThreadsById(db, []int64{tid})
+			if !checkSingleThread(threads, err, w) {
 				return
 			}
 			posts, err := GetPostsInThread(db, tid)
@@ -179,9 +217,82 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			for i := range posts {
 				postViews[i] = ConvertPost(posts[i], kctx.config)
 			}
+			data := kctx.GetDefaultData(r)
 			data["thread"] = ConvertThread(threads[0], kctx.config)
 			data["posts"] = postViews
 			kctx.runTemplate("thread.tmpl", w, data)
+		})
+
+		r.Get("/image", func(w http.ResponseWriter, r *http.Request) {
+			db, err := kctx.config.OpenDb()
+			if err != nil {
+				reportDbError(err, w)
+				return
+			}
+			defer db.Close()
+
+			iquery, err := ParseImageQuery(kctx, r)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Query parse error: %s", err), http.StatusBadRequest)
+				return
+			}
+
+			data := kctx.GetDefaultData(r)
+			// Unfortunately, because we're returning json, we HAVE to do this silliness
+			data["bucket"] = iquery.Bucket
+			data["ipp"] = iquery.IPP
+			data["view"] = iquery.View
+			data["page"] = iquery.Page
+			data["nextPage"] = iquery.Page + 1
+			if iquery.Page > 1 {
+				data["previousPage"] = iquery.Page - 1
+			}
+			// Note: we used to have "hideuploads", we don't use that anymore, but just in case...
+			data["hideuploads"] = false
+
+			var thread *Thread
+			if iquery.View != "" {
+				threads, err := GetThreadsByField(db, "hash", iquery.View)
+				if !checkSingleThread(threads, err, w) {
+					return
+				}
+				thread = &threads[0]
+				data["readonly"] = true
+			} else {
+				threadname := OrphanedPrepend
+				if iquery.Bucket != "" {
+					threadname += "_" + iquery.Bucket
+				}
+				threads, err := GetThreadsByField(db, "subject", threadname)
+				if !checkSingleThread(threads, err, w) {
+					return
+				}
+				thread = &threads[0]
+			}
+
+			if thread != nil {
+				data["publicLink"] = fmt.Sprintf("%s/image?view=%s", kctx.config.RootPath, utils.Unpointer(thread.hash, ""))
+				posts, err := GetPaginatedPosts(db, int64(thread.tid), iquery.Page-1, iquery.IPP)
+				if err != nil {
+					log.Printf("Error pulling posts: %s", err)
+					http.Error(w, "Can't pull posts", http.StatusBadRequest)
+					return
+				}
+				postViews := make([]PostView, len(posts))
+				for i := range posts {
+					postViews[i] = ConvertPost(posts[i], kctx.config)
+				}
+				log.Printf("Thread: %v, POsts: %d", thread, len(posts))
+				data["pastImages"] = postViews
+			} else {
+				data["isnewthread"] = true
+			}
+
+			if iquery.AsJSON {
+				utils.RespondJson(data, w, nil)
+			} else {
+				kctx.runTemplate("image.tmpl", w, data)
+			}
 		})
 	})
 
@@ -202,10 +313,14 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 		r.Post("/settings", func(w http.ResponseWriter, r *http.Request) {
 			// Apparently, we don't support the post styling anymore. Sad... but we
 			// keep this functionality here just in case? I don't know why...
-			q := r.URL.Query()
-			adminid := q.Get("adminid")
-			poststyle := q.Get("poststyle")
-			redirect := q.Get("redirect")
+			err := r.ParseForm()
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Error parsing form: %s", err), http.StatusBadRequest)
+				return
+			}
+			adminid := r.Form.Get("adminid")
+			poststyle := r.Form.Get("poststyle")
+			redirect := r.Form.Get("redirect")
 			if redirect == "" {
 				redirect = kctx.config.RootPath
 			}
@@ -222,6 +337,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			}
 			handleSetting(AdminIdKey, adminid)
 			handleSetting(PostStyleKey, poststyle)
+			log.Printf("Redirect: %s", redirect)
 			http.Redirect(w, r, redirect, http.StatusSeeOther)
 		})
 

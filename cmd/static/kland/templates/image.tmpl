@@ -1,0 +1,107 @@
+<html>
+
+  <head>
+    {{template "header.tmpl" .}}
+    <script src="{{.root}}/compatibility.js?version={{.appversion}}"></script>
+    <script src="{{.root}}/image.js?version={{.appversion}}"></script>
+    <link rel="stylesheet" type="text/css" href="image.css?version={{.appversion}}">
+    <title>Image Uploader {{if .bucket}}({{.bucket}}){{end}}</title>
+  </head>
+
+  <body>
+
+    <div class="header specialblock">
+      <h1>Image Uploader {{if .bucket}}({{.bucket}}){{end}}</h1>
+      <p>Use this to upload and store images permanently on kland without making a post</p>
+      {{if .publicLink}}{{if .bucket}}
+      <p>Readonly Bucket link: <a href="{{.publicLink}}">{{.publicLink}}</a></p>
+      {{end}}{{end}}
+    </div>
+
+    {{if not .readonly}}
+    <form id="uploadform" action="{{.root}}/uploadimage" method="post" enctype="multipart/form-data"
+        class="postform specialblock">
+        <input type="hidden" name="redirect" value="1">
+        <input type="file" name="image" accept="image/*">
+        {{if .isAdmin}}
+        <input type="text" name="url" placeholder="OR specify a URL (file overrides it)">
+        {{end}}
+        {{if .bucket}}
+        <input type="hidden" name="bucket" value="{{.bucket}}">
+        {{end}}
+        <input type="submit" value="Upload">
+        <div id="pastediv" class="paste" data-bucket="{{.bucket}}" contenteditable="true">
+          <p data-bucket="{{.bucket}}">
+              Or, Paste image here (auto uploads) 📷
+          </p>
+        </div>
+    </form>
+    {{end}}
+
+    <div class="postform extradata specialblock">
+        <div class="bucket">
+          <input id="gotoThisBucket" type="text" value="{{.bucket}}" placeholder="bucket" required>
+          <button onclick="gotoBucket();">Goto this bucket</button>
+          <p>Buckets are like public folders. If you don't give out the folder
+              name and it's not easy to guess, it'll be "private"</p>
+        </div>
+        <div class="imagenumber">
+          <input type="number" min="0" max="500" step="10" id="pickIPP"
+              value="{{.ipp}}" placeholder="images per page" required>
+          <button onclick="setIPP();">Set images per page</button>
+        </div>
+    </div>
+
+    {{if not .hideuploads}}
+    <div class="uploads">
+        <div class="subheader specialblock">
+          <h2>Latest uploads:</h2>
+          {{template "imagenav.tmpl" .}}
+        </div>
+        <div class="imagelist">
+          {{if .isnewthread}}
+          <div class="header specialblock">New bucket (is this expected?)</div>
+          {{else}}
+          {{range .pastImages}}
+          <div class="imagecontainer hiddencontrolcontainer">
+              <a href="{{.ImageLink}}" title="{{.CreatedOn}}"><img class="specialblock" src="{{.ImageLink}}"></a>
+              {{if $.isAdmin}}
+              <div class="hiddencontrols" tabindex="-1">
+                <form action="{{$.root}}/admin" method="post" class="settingsform">
+                    <input type="hidden" name="adminid" value="{{$.adminID}}">
+                    <input type="hidden" name="action" value="moveimage">
+                    <input type="hidden" name="pid" value="{{.Pid}}">
+                    <input type="hidden" name="redirect" value="{{$.requestUri}}">
+                    <input type="input" name="bucket" placeholder="Move to bucket">
+                    <input type="submit" value="Move">
+                </form>
+              </div>
+              {{end}}
+          </div>
+          {{end}}
+          {{end}}
+        </div>
+        <div class="subheader specialblock">
+          {{template "imagenav.tmpl" .}}
+        </div>
+    </div>
+    {{end}}
+
+    <canvas style="display: none;" id="scratchCanvas">
+    </canvas>
+    <div id="slideshow" data-hide>
+        <img class="fillcenter" id="slideshowimage">
+        <div class="slideshownav">
+          <button id="slideshowexit">Exit</button>
+          <button id="slideshowback">Previous</button>
+          <button id="slideshownext">Next</button>
+        </div>
+    </div>
+
+    <div class="footer">
+      {{template "footer.tmpl" .}}
+    </div>
+
+  </body>
+
+</html>

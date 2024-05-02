@@ -35,3 +35,17 @@ func DeleteCookie(name string, w http.ResponseWriter) {
 		Expires: time.Now().Add(-time.Hour),
 	})
 }
+
+// Return the value from an integer cookie
+func GetCookieOrDefault[T any](name string, r *http.Request, def T, parse func(string) (T, error)) T {
+	cookie, err := r.Cookie(name)
+	if err != nil {
+		return def
+	}
+	parsed, err := parse(cookie.Value)
+	//strconv.ParseInt(cookie.Value, 10, 64)
+	if err != nil {
+		return def
+	}
+	return parsed
+}

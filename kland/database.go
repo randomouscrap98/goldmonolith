@@ -86,47 +86,17 @@ func parseTimePtr(tstr *string) time.Time {
 	return parseTime(utils.Unpointer(tstr, ""))
 }
 
-// // Pull threads from the db. Will pull ALL threads if id list is empty
-// func GetThreads(db *sql.DB, ids []int64) ([]Thread, error) {
-// 	extraWhere := ""
-// 	anyIds := utils.SliceToAny(ids)
-//
-// 	if len(ids) > 0 {
-// 		extraWhere = fmt.Sprintf("AND t.tid IN (%s)", utils.SliceToPlaceholder(ids))
-// 	}
-//
-// 	// The appending to this might suck idk
-// 	result := make([]Thread, 0)
-//
-// 	// Go get the main data
-// 	rows, err := db.Query(fmt.Sprintf(`
-// SELECT t.tid, t.created, t.subject, t.deleted, t.hash, COUNT(p.pid), MAX(p.created)
-// FROM threads t LEFT JOIN posts p ON t.tid = p.tid
-// WHERE t.deleted = 0 %s
-// GROUP BY t.tid
-// ORDER BY t.tid DESC
-// `, extraWhere), anyIds...)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-//
-// 	for rows.Next() {
-// 		t := Thread{}
-// 		err := rows.Scan(&t.tid, &t.created, &t.subject, &t.deleted, &t.hash,
-// 			&t.postCount, &t.lastPostOn)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		result = append(result, t)
-// 	}
-//
-// 	return result, nil
-// }
-
-func QueryThreads(db *sql.DB, where func(table string) string, params []any) ([]Thread, error) {
+func QueryThreads(db *sql.DB, where func(string) string, limit func(string) string, params []any) ([]Thread, error) {
 	// The appending to this might suck idk
 	result := make([]Thread, 0)
+	extrawhere := ""
+	if where != nil {
+		extrawhere = where("t")
+	}
+	extralimit := ""
+	if limit != nil {
+		extralimit = limit("t")
+	}
 
 	// Go get the main data
 	rows, err := db.Query(fmt.Sprintf(`
@@ -134,8 +104,8 @@ SELECT t.tid, t.created, t.subject, t.deleted, t.hash, COUNT(p.pid), MAX(p.creat
 FROM threads t LEFT JOIN posts p ON t.tid = p.tid
 %s
 GROUP BY t.tid
-ORDER BY t.tid DESC
-`, where("t")), params...)
+%s
+`, extrawhere, extralimit), params...)
 	if err != nil {
 		return nil, err
 	}
@@ -154,16 +124,24 @@ ORDER BY t.tid DESC
 	return result, nil
 }
 
-func QueryPosts(db *sql.DB, where func(table string) string, params []any) ([]Post, error) {
+func QueryPosts(db *sql.DB, where func(string) string, limit func(string) string, params []any) ([]Post, error) {
 	result := make([]Post, 0)
+	extrawhere := ""
+	if where != nil {
+		extrawhere = where("p")
+	}
+	extralimit := ""
+	if limit != nil {
+		extralimit = limit("p")
+	}
 
 	// Go get the main data
 	rows, err := db.Query(fmt.Sprintf(`
 SELECT p.pid, p.tid, p.created, p.content, p.options, p.ipaddress, p.username, p.tripraw, p.image
 FROM posts p
 %s
-ORDER BY p.pid
-`, where("p")), params...)
+%s
+`, extrawhere, extralimit), params...)
 	if err != nil {
 		return nil, err
 	}
@@ -182,58 +160,51 @@ ORDER BY p.pid
 	return result, nil
 }
 
-func GetAllThreads(db *sql.DB) ([]Thread, error) {
-	return QueryThreads(db, func(t string) string {
-		return fmt.Sprintf("WHERE %s.deleted = 0", t)
-	}, nil)
+func orderTidDesc(t string) string {
+	return fmt.Sprintf("ORDER BY %s.tid DESC", t)
+}
+func orderPid(t string) string {
+	return fmt.Sprintf("ORDER BY %s.pid", t)
 }
 
-func GetThreadById(db *sql.DB, ids []int64) ([]Thread, error) {
-	return QueryThreads(db, func(t string) string {
-		return fmt.Sprintf("WHERE %s.tid IN (%s)", t, utils.SliceToPlaceholder(ids))
-	}, utils.SliceToAny(ids))
+func GetAllThreads(db *sql.DB) ([]Thread, error) {
+	return QueryThreads(db,
+		func(t string) string {
+			return fmt.Sprintf("WHERE %s.deleted = 0", t)
+		},
+		orderTidDesc, nil)
+}
+
+func GetThreadsById(db *sql.DB, ids []int64) ([]Thread, error) {
+	return QueryThreads(db,
+		func(t string) string {
+			return fmt.Sprintf("WHERE %s.tid IN (%s)", t, utils.SliceToPlaceholder(ids))
+		},
+		orderTidDesc, utils.SliceToAny(ids))
+}
+
+func GetThreadsByField(db *sql.DB, field string, hash string) ([]Thread, error) {
+	return QueryThreads(db,
+		func(t string) string {
+			return fmt.Sprintf("WHERE %s.%s = ?", t, field)
+		},
+		orderTidDesc, []any{hash})
 }
 
 func GetPostsInThread(db *sql.DB, tid int64) ([]Post, error) {
-	return QueryPosts(db, func(t string) string {
-		return fmt.Sprintf("WHERE %s.tid = ?", t)
-	}, []any{tid})
+	return QueryPosts(db,
+		func(t string) string {
+			return fmt.Sprintf("WHERE %s.tid = ?", t)
+		},
+		orderPid, []any{tid})
 }
 
-// func GetPosts(db *sql.DB, tid int64, ids []int64) ([]Post, error) {
-// 	result := make([]Post, 0)
-//
-// 	extraWhere := ""
-//   params := make([]any, len(ids) + 1)
-//   params[0] = tid
-//
-// 	if len(ids) > 0 {
-// 		extraWhere = fmt.Sprintf("AND pid IN (%s)", utils.SliceToPlaceholder(ids))
-//     anyIds := utils.SliceToAny(ids)
-//     copy(params[1:], anyIds)
-// 	}
-//
-// 	// Go get the main data
-// 	rows, err := db.Query(fmt.Sprintf(`
-// SELECT pid, tid, created, content, options, ipaddress, username, tripraw, image
-// FROM posts
-// WHERE tid = ? %s
-// ORDER BY pid
-// `, extraWhere), params...)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-//
-// 	for rows.Next() {
-// 		p := Post{}
-// 		err := rows.Scan(&p.pid, &p.tid, &p.created, &p.content, &p.options,
-// 			&p.ipaddress, &p.username, &p.tripraw, &p.image)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		result = append(result, p)
-// 	}
-//
-// 	return result, nil
-// }
+func GetPaginatedPosts(db *sql.DB, tid int64, page int, perpage int) ([]Post, error) {
+	return QueryPosts(db,
+		func(t string) string {
+			return fmt.Sprintf("WHERE %s.tid = ?", t)
+		},
+		func(t string) string {
+			return fmt.Sprintf("ORDER BY %s.pid DESC LIMIT ? OFFSET ?", t)
+		}, []any{tid, perpage, perpage * page})
+}

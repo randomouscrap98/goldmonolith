@@ -37,7 +37,7 @@
       {{end}}
       <span class="content" data-pid="{{.Pid}}">{{RawHtml .Content}}</span>
       {{if $.isAdmin}}
-      <form action="{{.root}}/admin" method="post" class="deleteForm"
+      <form action="{{$.root}}/admin" method="post" class="deleteForm"
           onsubmit="return confirm('Deletion is permanent and data is unrecoverable. Really delete?');">
           <input type="hidden" name="adminid" value="{{$.adminID}}">
           <input type="hidden" name="action" value="deletepost">
@@ -46,11 +46,11 @@
           <input type="submit" value="Delete">
       </form>
       {{if not $.isBanned}}
-      <form action="{{.root}}/admin" method="post" class="blockForm"
-          onsubmit="return confirm('Bans are permenent. Are you sure you want to ban IP {{.IpAddress}}?');">
+      <form action="{{$.root}}/admin" method="post" class="blockForm"
+          onsubmit="return confirm('Bans are permenent. Are you sure you want to ban IP {{.IPAddress}}?');">
           <input type="hidden" name="adminid" value="{{$.adminID}}">
           <input type="hidden" name="action" value="blockip">
-          <input type="hidden" name="ip" value="{{.IpAddress}}">
+          <input type="hidden" name="ip" value="{{.IPAddress}}">
           <input type="hidden" name="redirect" value="{{$.requestUri}}">
           <input type="submit" value="Block IP">
       </form>

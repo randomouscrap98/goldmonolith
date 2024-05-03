@@ -2,6 +2,8 @@ package kland
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -9,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gorilla/schema"
 
@@ -19,6 +22,8 @@ type KlandContext struct {
 	config    *Config
 	decoder   *schema.Decoder
 	templates *template.Template
+	tinsmu    sync.Mutex
+	pinsmu    sync.Mutex
 }
 
 func NewKlandContext(config *Config) (*KlandContext, error) {
@@ -164,4 +169,61 @@ func (kctx *KlandContext) ParseImageQuery(r *http.Request) (GetImageQuery, error
 		iquery.IPP = DefaultIpp
 	}
 	return iquery, nil
+}
+
+func bucketSubject(bucket string) string {
+	if bucket == "" {
+		return OrphanedPrepend
+	} else {
+		return fmt.Sprintf("%s_%s", OrphanedPrepend, bucket)
+	}
+}
+
+// Either retrieve the existing bucket thread, or create a new one. It will always
+// have a valid hash after this call, even if it previously did not.
+func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (Thread, error) {
+	subject := bucketSubject(bucket)
+	threads, err := GetThreadsByField(db, "subject", subject)
+	if err != nil {
+		return Thread{}, err
+	}
+	if len(threads) > 0 {
+		// if the thread exists, just check for hash update.
+		thread := threads[0]
+		if utils.IsNilOrEmpty(thread.hash) {
+			log.Printf("Thread %s(%d) doesn't have a hash; generating", thread.subject, thread.tid)
+			kctx.tinsmu.Lock()
+			defer kctx.tinsmu.Unlock()
+			hash, err := GenerateThreadHash(db)
+			if err != nil {
+				return Thread{}, err
+			}
+			_, err = db.Exec("UPDATE threads SET hash=? WHERE tid=?", hash, thread.tid)
+			if err != nil {
+				return Thread{}, err
+			}
+		}
+		return thread, nil
+	} else {
+		// The thread needs to be created
+		kctx.tinsmu.Lock()
+		defer kctx.tinsmu.Unlock()
+		hash, err := GenerateThreadHash(db)
+		if err != nil {
+			return Thread{}, err
+		}
+		_, err = db.Exec("INSERT INTO threads(subject, created, deleted, hash) VALUES (?,?,?,?)",
+			subject, time.Now().Format(TimeFormat), true, hash)
+		if err != nil {
+			return Thread{}, err
+		}
+		threads, err := GetThreadsByField(db, "subject", subject)
+		if err != nil {
+			return Thread{}, err
+		}
+		if len(threads) < 1 {
+			return Thread{}, &NotFoundError{Lookup: subject}
+		}
+		return threads[0], nil
+	}
 }

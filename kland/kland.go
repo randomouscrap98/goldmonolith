@@ -114,23 +114,28 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			data["hideuploads"] = false
 
 			var thread *Thread
+			getByField := func(name string, value string) bool {
+				threads, err := GetThreadsByField(db, name, value)
+				if err != nil {
+					log.Printf("Couldn't get thread: %s", err)
+					http.Error(w, "Couldn't get thread?", http.StatusInternalServerError)
+					return false
+				}
+				if len(threads) >= 1 {
+					thread = &threads[0]
+				}
+				return true
+			}
+
 			if iquery.View != "" {
-				threads, err := GetThreadsByField(db, "hash", iquery.View)
-				if !checkSingleThread(threads, err, w) {
+				if !getByField("hash", iquery.View) {
 					return
 				}
-				thread = &threads[0]
 				data["readonly"] = true
 			} else {
-				threadname := OrphanedPrepend
-				if iquery.Bucket != "" {
-					threadname += "_" + iquery.Bucket
-				}
-				threads, err := GetThreadsByField(db, "subject", threadname)
-				if !checkSingleThread(threads, err, w) {
+				if !getByField("subject", bucketSubject(iquery.Bucket)) {
 					return
 				}
-				thread = &threads[0]
 			}
 
 			if thread != nil {
@@ -168,16 +173,9 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 		})
 
 		r.Post("/settings", func(w http.ResponseWriter, r *http.Request) {
-			// Apparently, we don't support the post styling anymore. Sad... but we
-			// keep this functionality here just in case? I don't know why...
-			err := r.ParseForm()
-			if err != nil {
-				http.Error(w, fmt.Sprintf("Error parsing form: %s", err), http.StatusBadRequest)
-				return
-			}
-			adminid := r.Form.Get("adminid")
-			poststyle := r.Form.Get("poststyle")
-			redirect := r.Form.Get("redirect")
+			adminid := r.FormValue("adminid")
+			poststyle := r.FormValue("poststyle")
+			redirect := r.FormValue("redirect")
 			if redirect == "" {
 				redirect = kctx.config.RootPath
 			}
@@ -199,7 +197,32 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 		})
 
 		r.Post("/uploadimage", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("."))
+			if r.FormValue("url") != "" {
+				http.Error(w, "Admin tasks not currently reimplemented", http.StatusTeapot)
+				return
+			}
+			db, err := kctx.config.OpenDb()
+			if err != nil {
+				reportDbError(err, w)
+				return
+			}
+			defer db.Close()
+			//realRedirect := utils.StringToBool(r.FormValue("redirect"))
+			//realShort := utils.StringToBool(r.FormValue("shorturl"))
+			//imageUrl := ""
+			//finalImageName := ""
+			ipaddress := r.Header.Get(kctx.config.IpHeader)
+			if ipaddress == "" {
+				ipaddress = "unknown"
+			}
+			bucket := r.FormValue("bucket")
+			bucketThread, err := kctx.GetOrCreateBucketThread(db, bucket)
+			if err != nil {
+				log.Printf("Couldn't get bucket thread on upload: %s", err)
+				http.Error(w, "Couldn't get bucket thread", http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte(fmt.Sprintf("%v", bucketThread)))
 		})
 	})
 

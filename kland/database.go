@@ -9,8 +9,10 @@ import (
 )
 
 const (
-	DatabaseVersion = "1"
-	TimeFormat      = "2006-01-02 15:04:05" // Don't bother with the milliseconds
+	DatabaseVersion    = "1"
+	TimeFormat         = "2006-01-02 15:04:05" // Don't bother with the milliseconds
+	HashBaseCount      = 5
+	HashIncreaseFactor = 10000 // How many failures would require a base increase
 )
 
 type Ban struct {
@@ -84,6 +86,24 @@ func parseTime(tstr string) time.Time {
 
 func parseTimePtr(tstr *string) time.Time {
 	return parseTime(utils.Unpointer(tstr, ""))
+}
+
+// Generate a random thread hash that's never been used before. DOES NOT LOCK,
+// you will need to do that!!
+func GenerateThreadHash(db *sql.DB) (string, error) {
+	retries := 0
+	for {
+		hash := utils.RandomAsciiName(HashBaseCount + retries/HashIncreaseFactor)
+		// Go look for a thread with this hash. If one doesn't exist, we're good.
+		threads, err := GetThreadsByField(db, "hash", hash)
+		if err != nil {
+			return "", err
+		}
+		if len(threads) == 0 {
+			return hash, nil
+		}
+		retries += 1
+	}
 }
 
 func QueryThreads(db *sql.DB, where func(string) string, limit func(string) string, params []any) ([]Thread, error) {

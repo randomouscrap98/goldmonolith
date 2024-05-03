@@ -4,12 +4,16 @@ import (
 	"strings"
 )
 
-func StringToBool(value *string) bool {
+func StrPtrToBool(value *string) bool {
 	var v string
 	if value != nil {
 		v = strings.ToLower(strings.TrimSpace(*value))
 	}
 	return v != "" && v != "0" && v != "false" && v != "undefined" && v != "null"
+}
+
+func StringToBool(value string) bool {
+	return StrPtrToBool(&value)
 }
 
 func Unpointer[T any](value *T, def T) T {

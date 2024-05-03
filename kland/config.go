@@ -18,6 +18,8 @@ const (
 )
 
 type Config struct {
+	RootPath            string         // The root path to kland
+	AdminId             string         // Admin key
 	DatabasePath        string         // path to database
 	ImagePath           string         // path to images on local filesystem
 	TextPath            string         // path to text data (animations?) on local filesystem
@@ -27,9 +29,8 @@ type Config struct {
 	UploadLimitInterval utils.Duration // interval for upload limits
 	VisitPerInterval    int            // Amount of visits (any) allowed per timespan
 	VisitLimitInterval  utils.Duration // interval for visit limits
-	AdminId             string         // Admin key
 	CookieExpire        utils.Duration // Expiration of cookie (admin cookie?)
-	RootPath            string         // The root path to kland
+	IpHeader            string         // The header field for the user's IP
 }
 
 func GetDefaultConfig_Toml() string {
@@ -40,6 +41,8 @@ func GetDefaultConfig_Toml() string {
 	}
 	randomHex := hex.EncodeToString(randomUser)
 	return fmt.Sprintf(`# Config auto-generated on %s
+RootPath="/kland"                     # Root path for kland (if at root, leave BLANK)
+AdminId="%s"                          # Admin key (randomly generated)
 DatabasePath="data/kland/kland.db"    # Path to database (just data, not images)
 ImagePath="data/kland/images"         # Path to image folder
 TextPath="data/kland/text"            # Path to text folder (animations?)
@@ -49,9 +52,8 @@ UploadPerInterval=20                  # Amount of uploads (any) per interval
 UploadLimitInterval="1m"              # Interval for upload limit
 VisitPerInterval=100                  # Amount of visits (any) allowed per timespan
 VisitLimitInterval="1m"               # interval for visit limits
-AdminId="%s"                          # Admin key (randomly generated)
 CookieExpire="8760h"                  # Cookie expiration (for settings/etc)
-RootPath="/kland"                     # Root path for kland (if at root, leave BLANK)
+IPHeader="X-Real-IP"                  # Header field for user IP (assumes reverse proxy)
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

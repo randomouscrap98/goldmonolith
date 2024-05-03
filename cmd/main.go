@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/pelletier/go-toml/v2"
+
 	//"github.com/go-chi/httprate"
 
 	"github.com/randomouscrap98/goldmonolith/kland"
@@ -33,28 +35,20 @@ func must(err error) {
 	}
 }
 
-func initConfig(allowRecreate bool) *Config {
+func initConfig() *Config {
 	var config Config
-	// Read the config. It's OK if it doesn't exist
-	configData, err := os.ReadFile(ConfigFile)
-	if err != nil {
-		if allowRecreate {
-			configRaw := GetDefaultConfig_Toml()
-			err = os.WriteFile(ConfigFile, []byte(configRaw), 0600)
-			if err != nil {
-				log.Printf("ERROR: Couldn't write default config: %s\n", err)
-			} else {
-				log.Printf("Generated default config at %s\n", ConfigFile)
-				return initConfig(false)
-			}
-		} else {
-			log.Fatalf("WARN: Couldn't read config file %s: %s", ConfigFile, err)
-		}
-	} else {
-		// If the config exists, it MUST be parsable.
-		err = toml.Unmarshal(configData, &config)
-		must(err)
+	results, err := utils.ReadConfigStack(ConfigFile, func(raw []byte) error {
+		return toml.Unmarshal(raw, &config)
+	}, 10)
+	must(err)
+	// This means the original config wasn't loaded; let's load it and try again
+	if slices.Index(results, ConfigFile) < 0 {
+		configRaw := GetDefaultConfig_Toml()
+		must(os.WriteFile(ConfigFile, []byte(configRaw), 0600))
+		log.Printf("Generated default config at %s\n", ConfigFile)
+		return initConfig() // Redo the configs (it's fine...?)
 	}
+	log.Printf("Loaded %d config(s)", len(results))
 	return &config
 }
 
@@ -66,7 +60,7 @@ func initRouter(config *Config) *chi.Mux {
 	//r.Use(middleware.Timeout(time.Duration(config.Timeout)))
 	r.Use(proxy.ForwardedHeaders())
 	//r.Use(httprate.LimitByIP(config.RateLimitCount, time.Duration(config.RateLimitInterval)))
-	//
+
 	return r
 }
 
@@ -100,7 +94,7 @@ func waitForShutdown() {
 
 func main() {
 	log.Printf("Gold monolith server started\n")
-	config := initConfig(true)
+	config := initConfig()
 
 	// Context is something we'll cancel to cancel any and all background tasks
 	// when the server gets a shutdown signal

@@ -1,6 +1,9 @@
 package utils
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -22,4 +25,35 @@ func (d *Duration) UnmarshalText(b []byte) error {
 	}
 	*d = Duration(x)
 	return nil
+}
+
+// Read a stack of configs, starting with basename and going through base0.ext -> baseN.ext
+func ReadConfigStack(basename string, apply func([]byte) error, maxRead int) ([]string, error) {
+	configs := make([]string, maxRead+1)
+	results := make([]string, 0)
+	configs[0] = basename
+	extension := filepath.Ext(basename)
+	name := filepath.Base(basename)
+	name = name[:len(name)-len(extension)]
+	for i := range maxRead {
+		configs[i+1] = fmt.Sprintf("%s%d%s", name, i, extension)
+	}
+	// read each one, applying it using the given marshal function
+	for _, configfile := range configs {
+		_, err := os.Stat(configfile)
+		if os.IsNotExist(err) {
+			// this is fine, the file just doesn't exist
+			continue
+		}
+		configData, err := os.ReadFile(configfile)
+		if err != nil {
+			return results, err
+		}
+		err = apply(configData)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, configfile)
+	}
+	return results, nil
 }

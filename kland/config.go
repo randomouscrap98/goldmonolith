@@ -24,9 +24,9 @@ type Config struct {
 	DatabasePath        string         // path to database
 	ImagePath           string         // path to images on local filesystem
 	TextPath            string         // path to text data (animations?) on local filesystem
+	TempPath            string         // Place to put all temporary files
 	StaticFilePath      string         // path to all static files
 	TemplatePath        string         // path to all kland templates
-	TempPath            string         // Place to put all temporary files
 	UploadPerInterval   int            // Amount of uploads (any) allowed per timespan
 	UploadLimitInterval utils.Duration // interval for upload limits
 	VisitPerInterval    int            // Amount of visits (any) allowed per timespan
@@ -34,7 +34,7 @@ type Config struct {
 	CookieExpire        utils.Duration // Expiration of cookie (admin cookie?)
 	IpHeader            string         // The header field for the user's IP
 	ShortUrl            string         // The endpoint for the short url
-	//FullUrl             string         // The url for the "real" endpoint (where kland is hosted)
+	FullUrl             string         // The url for the "real" endpoint (where kland is hosted)
 }
 
 func GetDefaultConfig_Toml() string {
@@ -51,9 +51,9 @@ MaxImageSize=10_000_000               # Maximum image upload size
 DatabasePath="data/kland/kland.db"    # Path to database (just data, not images)
 ImagePath="data/kland/images"         # Path to image folder
 TextPath="data/kland/text"            # Path to text folder (animations?)
+TempPath="data/kland/tmp"             # Path to put all temporary files
 StaticFilePath="static/kland"         # Path to static files (currently only valid in monolith)
 TemplatePath="static/kland/templates" # Path to all template files
-TempPath="/tmp"                       # Path to put all temporary files
 UploadPerInterval=20                  # Amount of uploads (any) per interval
 UploadLimitInterval="1m"              # Interval for upload limit
 VisitPerInterval=100                  # Amount of visits (any) allowed per timespan
@@ -61,8 +61,8 @@ VisitLimitInterval="1m"               # interval for visit limits
 CookieExpire="8760h"                  # Cookie expiration (for settings/etc)
 IPHeader="X-Real-IP"                  # Header field for user IP (assumes reverse proxy)
 # RawImageRegex="(image/[a-z]+);base-?64,(.*)$" # IDK, you probably don't need to change this...
-ShortUrl="http://localhost/short"     # The short domain 
-# FullUrl="http://localhost/full"       # The full domain 
+ShortUrl="http://localhost:5020/short" # The short domain 
+FullUrl="http://localhost:5020"       # The full domain 
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

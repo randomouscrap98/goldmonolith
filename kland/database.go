@@ -137,8 +137,8 @@ func InsertBucketThread(db utils.DbLike, subject string) (*Thread, error) {
 }
 
 func InsertImagePost(db utils.DbLike, ip string, filename string, tid int) error {
-	_, err := db.Exec("INSERT INTO posts(content, created, ipaddress, image, tid) VALUES (?,?,?,?,?)",
-		OrphanedPostContent, time.Now().Format(TimeFormat), ip, filename, tid)
+	_, err := db.Exec("INSERT INTO posts(content, created, ipaddress, image, tid, options) VALUES (?,?,?,?,?,?)",
+		OrphanedPostContent, time.Now().Format(TimeFormat), ip, filename, tid, "")
 	if err != nil {
 		return err
 	}

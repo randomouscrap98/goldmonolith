@@ -275,6 +275,11 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			}
 			// Now we can generate a random name and move hte file
 			finalname, err := kctx.MoveAndRegisterUpload(outfile.Name(), *extension)
+			if err != nil {
+				log.Printf("Can't move upload: %s", err)
+				http.Error(w, "Couldn't write file", http.StatusInternalServerError)
+				return
+			}
 			err = InsertImagePost(db, ipaddress, finalname, bucketThread.tid)
 			if err != nil {
 				log.Printf("CAN'T INSERT POST: %s", err)
@@ -286,11 +291,13 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			if realShort {
 				imageUrl = fmt.Sprintf("%s/finalname", kctx.config.ShortUrl)
 			} else {
-				imageUrl = fmt.Sprintf("https://%s%s/i/%s", r.URL.Hostname(), kctx.config.RootPath, finalname)
+				imageUrl = fmt.Sprintf("%s%s/i/%s", kctx.config.FullUrl, kctx.config.RootPath, finalname)
 			}
 
+			log.Printf("Image url: %s", imageUrl)
+
 			if realRedirect {
-				http.Redirect(w, r, imageUrl, http.StatusTemporaryRedirect)
+				http.Redirect(w, r, imageUrl, http.StatusSeeOther)
 			} else {
 				w.Write([]byte(imageUrl)) //fmt.Sprintf("%v", bucketThread)))
 			}

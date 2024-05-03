@@ -214,6 +214,12 @@ func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (*T
 }
 
 func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.File, error) {
+	err := os.MkdirAll(kctx.config.TempPath, 0700)
+	if err != nil {
+		log.Printf("Couldn't create temp folder: %s", err)
+		http.Error(w, "Can't write temp file", http.StatusInternalServerError)
+		return nil, err
+	}
 	tempfile, err := os.CreateTemp(kctx.config.TempPath, "kland_upload_")
 	if err != nil {
 		log.Printf("Couldn't open temp file: %s", err)
@@ -238,6 +244,9 @@ func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.Fil
 }
 
 func (kctx *KlandContext) MoveAndRegisterUpload(path string, extension string) (string, error) {
+	if len(extension) == 0 {
+		return "", fmt.Errorf("you must provide an extension")
+	}
 	kctx.pinsmu.Lock()
 	defer kctx.pinsmu.Unlock()
 	// generate a valid file name (one that is not currently used)
@@ -255,10 +264,18 @@ func (kctx *KlandContext) MoveAndRegisterUpload(path string, extension string) (
 		}
 		retries += 1
 	}
+	if extension[0] == '.' {
+		extension = extension[1:]
+	}
 	// now we move the file and we're done
 	filename := fmt.Sprintf("%s.%s", name, extension)
 	dest := filepath.Join(kctx.config.ImagePath, filename)
-	err := os.Rename(path, dest)
+	destabs, err := filepath.Abs(dest)
+	if err != nil {
+		return "", err
+	}
+	err = os.Rename(path, destabs)
+	log.Printf("Moved %s to %s", path, destabs)
 	if err != nil {
 		return "", err
 	}

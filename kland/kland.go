@@ -14,13 +14,14 @@ import (
 )
 
 const (
-	Version         = "0.1.0"
-	AdminIdKey      = "adminId"
-	IsAdminKey      = "isAdmin"
-	PostStyleKey    = "postStyle"
-	OrphanedPrepend = "Internal_OrphanedImages"
-	LongCookie      = 365 * 24 * 60 * 60
-	DefaultIpp      = 20
+	Version            = "0.1.0"
+	AdminIdKey         = "adminId"
+	IsAdminKey         = "isAdmin"
+	PostStyleKey       = "postStyle"
+	OrphanedPrepend    = "Internal_OrphanedImages"
+	LongCookie         = 365 * 24 * 60 * 60
+	DefaultIpp         = 20
+	MaxMultipartMemory = 256_000
 )
 
 func reportDbError(err error, w http.ResponseWriter) {
@@ -197,8 +198,12 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 		})
 
 		r.Post("/uploadimage", func(w http.ResponseWriter, r *http.Request) {
+			// WE want to parse the form so we can set the mem size...
+			r.ParseMultipartForm(MaxMultipartMemory)
+			// Set limits on the body
+			r.Body = http.MaxBytesReader(w, r.Body, int64(kctx.config.MaxImageSize))
 			if r.FormValue("url") != "" {
-				http.Error(w, "Admin tasks not currently reimplemented", http.StatusTeapot)
+				http.Error(w, "Admin tasks not currently reimplemented (url upload)", http.StatusTeapot)
 				return
 			}
 			db, err := kctx.config.OpenDb()

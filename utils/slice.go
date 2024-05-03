@@ -43,3 +43,15 @@ func SliceDistinct[T comparable](slice []T) []T {
 	}
 	return result
 }
+
+// Get pointer to first element or throw error. Also accept an error
+// because this is usually used with database lookups
+func FirstErr[T any](t []T, err error) (*T, error) {
+	if err != nil {
+		return nil, err
+	}
+	if len(t) < 1 {
+		return nil, &NotFoundError{}
+	}
+	return &t[0], nil
+}

@@ -1,7 +1,6 @@
 package kland
 
 import (
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -45,7 +44,7 @@ type Thread struct {
 	lastPostOn *string //time.Time
 }
 
-func CreateTables(config *Config) error {
+func CreateTables(db utils.DbLike) error {
 	allSql := []string{
 		`create table if not exists bans (
       range text unique,
@@ -70,9 +69,11 @@ func CreateTables(config *Config) error {
       tripraw text,
       image text
     );`,
+		`create index if not exists idx_threads_subject on threads(subject);`,
+		`create index if not exists idx_threads_hash on threads(hash);`,
 		`create index if not exists idx_posts_tid on posts(tid);`,
 	}
-	return utils.CreateTables_VersionedDb(allSql, config, DatabaseVersion)
+	return utils.CreateTables_VersionedDb(allSql, db, DatabaseVersion)
 }
 
 func parseTime(tstr string) time.Time {
@@ -90,23 +91,51 @@ func parseTimePtr(tstr *string) time.Time {
 
 // Generate a random thread hash that's never been used before. DOES NOT LOCK,
 // you will need to do that!!
-func GenerateThreadHash(db *sql.DB) (string, error) {
+func GenerateThreadHash(db utils.DbLike) (string, error) {
 	retries := 0
+	var count int64
 	for {
 		hash := utils.RandomAsciiName(HashBaseCount + retries/HashIncreaseFactor)
 		// Go look for a thread with this hash. If one doesn't exist, we're good.
-		threads, err := GetThreadsByField(db, "hash", hash)
+		err := db.QueryRow("SELECT COUNT(*) FROM threads WHERE hash = ?", hash).Scan(&count)
 		if err != nil {
 			return "", err
 		}
-		if len(threads) == 0 {
+		if count == 0 {
 			return hash, nil
 		}
 		retries += 1
 	}
 }
 
-func QueryThreads(db *sql.DB, where func(string) string, limit func(string) string, params []any) ([]Thread, error) {
+// Update hash on thread to another random value
+func UpdateThreadHash(db utils.DbLike, tid int) (*Thread, error) {
+	hash, err := GenerateThreadHash(db)
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("UPDATE threads SET hash=? WHERE tid=?", hash, tid)
+	if err != nil {
+		return nil, err
+	}
+	return utils.FirstErr(GetThreadsByField(db, "tid", tid))
+}
+
+// Add a bucket thread, generating a random hash. Returns the thread as inserted
+func InsertBucketThread(db utils.DbLike, subject string) (*Thread, error) {
+	hash, err := GenerateThreadHash(db)
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("INSERT INTO threads(subject, created, deleted, hash) VALUES (?,?,?,?)",
+		subject, time.Now().Format(TimeFormat), true, hash)
+	if err != nil {
+		return nil, err
+	}
+	return utils.FirstErr(GetThreadsByField(db, "subject", subject))
+}
+
+func QueryThreads(db utils.DbLike, where func(string) string, limit func(string) string, params []any) ([]Thread, error) {
 	// The appending to this might suck idk
 	result := make([]Thread, 0)
 	extrawhere := ""
@@ -144,7 +173,7 @@ GROUP BY t.tid
 	return result, nil
 }
 
-func QueryPosts(db *sql.DB, where func(string) string, limit func(string) string, params []any) ([]Post, error) {
+func QueryPosts(db utils.DbLike, where func(string) string, limit func(string) string, params []any) ([]Post, error) {
 	result := make([]Post, 0)
 	extrawhere := ""
 	if where != nil {
@@ -187,7 +216,7 @@ func orderPid(t string) string {
 	return fmt.Sprintf("ORDER BY %s.pid", t)
 }
 
-func GetAllThreads(db *sql.DB) ([]Thread, error) {
+func GetAllThreads(db utils.DbLike) ([]Thread, error) {
 	return QueryThreads(db,
 		func(t string) string {
 			return fmt.Sprintf("WHERE %s.deleted = 0", t)
@@ -195,7 +224,7 @@ func GetAllThreads(db *sql.DB) ([]Thread, error) {
 		orderTidDesc, nil)
 }
 
-func GetThreadsById(db *sql.DB, ids []int64) ([]Thread, error) {
+func GetThreadsById(db utils.DbLike, ids []int64) ([]Thread, error) {
 	return QueryThreads(db,
 		func(t string) string {
 			return fmt.Sprintf("WHERE %s.tid IN (%s)", t, utils.SliceToPlaceholder(ids))
@@ -203,15 +232,15 @@ func GetThreadsById(db *sql.DB, ids []int64) ([]Thread, error) {
 		orderTidDesc, utils.SliceToAny(ids))
 }
 
-func GetThreadsByField(db *sql.DB, field string, hash string) ([]Thread, error) {
+func GetThreadsByField(db utils.DbLike, field string, value any) ([]Thread, error) {
 	return QueryThreads(db,
 		func(t string) string {
 			return fmt.Sprintf("WHERE %s.%s = ?", t, field)
 		},
-		orderTidDesc, []any{hash})
+		orderTidDesc, []any{value})
 }
 
-func GetPostsInThread(db *sql.DB, tid int64) ([]Post, error) {
+func GetPostsInThread(db utils.DbLike, tid int64) ([]Post, error) {
 	return QueryPosts(db,
 		func(t string) string {
 			return fmt.Sprintf("WHERE %s.tid = ?", t)
@@ -219,7 +248,7 @@ func GetPostsInThread(db *sql.DB, tid int64) ([]Post, error) {
 		orderPid, []any{tid})
 }
 
-func GetPaginatedPosts(db *sql.DB, tid int64, page int, perpage int) ([]Post, error) {
+func GetPaginatedPosts(db utils.DbLike, tid int64, page int, perpage int) ([]Post, error) {
 	return QueryPosts(db,
 		func(t string) string {
 			return fmt.Sprintf("WHERE %s.tid = ?", t)

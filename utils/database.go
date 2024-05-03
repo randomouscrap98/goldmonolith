@@ -5,18 +5,24 @@ import (
 	"fmt"
 )
 
-type DbConnectionOpener interface {
-	OpenDb() (*sql.DB, error)
+// type DbConnectionOpener interface {
+// 	OpenDb() (*sql.DB, error)
+// }
+
+type DbLike interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
 }
 
 // Given the create table / index commands, create all the tables and ALSO add a system
 // value table which contains version information. You can use this table for other things too
-func CreateTables_VersionedDb(allSql []string, conprov DbConnectionOpener, version string) error {
-	db, err := conprov.OpenDb()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+func CreateTables_VersionedDb(allSql []string, db DbLike, version string) error {
+	// db, err := conprov.OpenDb()
+	// if err != nil {
+	// 	return err
+	// }
+	// defer db.Close()
 
 	allSql = append(allSql,
 		`CREATE TABLE IF NOT EXISTS sysvalues (
@@ -31,7 +37,7 @@ func CreateTables_VersionedDb(allSql []string, conprov DbConnectionOpener, versi
 		}
 	}
 
-	_, err = db.Exec("INSERT OR IGNORE INTO sysvalues VALUES(?,?)", "version", version)
+	_, err := db.Exec("INSERT OR IGNORE INTO sysvalues VALUES(?,?)", "version", version)
 	if err != nil {
 		return err
 	}
@@ -40,14 +46,9 @@ func CreateTables_VersionedDb(allSql []string, conprov DbConnectionOpener, versi
 }
 
 // Verify that a "versioned" database is the expected version
-func VerifyVersionedDb(conprov DbConnectionOpener, version string) error {
-	db, err := conprov.OpenDb()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+func VerifyVersionedDb(db DbLike, version string) error {
 	var dbVersion string
-	err = db.QueryRow("SELECT value FROM sysvalues WHERE \"key\" = ?", "version").Scan(&dbVersion)
+	err := db.QueryRow("SELECT value FROM sysvalues WHERE \"key\" = ?", "version").Scan(&dbVersion)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,7 @@ const (
 type Config struct {
 	RootPath            string         // The root path to kland
 	AdminId             string         // Admin key
+	MaxImageSize        int            // Maximum image upload size. It's a hard cutoff
 	DatabasePath        string         // path to database
 	ImagePath           string         // path to images on local filesystem
 	TextPath            string         // path to text data (animations?) on local filesystem
@@ -31,6 +32,7 @@ type Config struct {
 	VisitLimitInterval  utils.Duration // interval for visit limits
 	CookieExpire        utils.Duration // Expiration of cookie (admin cookie?)
 	IpHeader            string         // The header field for the user's IP
+	RawImageRegex       string
 }
 
 func GetDefaultConfig_Toml() string {
@@ -43,6 +45,7 @@ func GetDefaultConfig_Toml() string {
 	return fmt.Sprintf(`# Config auto-generated on %s
 RootPath="/kland"                     # Root path for kland (if at root, leave BLANK)
 AdminId="%s"                          # Admin key (randomly generated)
+MaxImageSize=10_000_000               # Maximum image upload size
 DatabasePath="data/kland/kland.db"    # Path to database (just data, not images)
 ImagePath="data/kland/images"         # Path to image folder
 TextPath="data/kland/text"            # Path to text folder (animations?)
@@ -54,6 +57,7 @@ VisitPerInterval=100                  # Amount of visits (any) allowed per times
 VisitLimitInterval="1m"               # interval for visit limits
 CookieExpire="8760h"                  # Cookie expiration (for settings/etc)
 IPHeader="X-Real-IP"                  # Header field for user IP (assumes reverse proxy)
+RawImageRegex="(image/[a-z]+);base-?64,(.*)$" # IDK, you probably don't need to change this...
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

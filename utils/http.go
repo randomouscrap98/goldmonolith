@@ -57,16 +57,12 @@ func FileServer(r chi.Router, path string, local string) error {
 	return nil
 }
 
-func FinalError(err error, w http.ResponseWriter) {
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
 func RespondPlaintext(data []byte, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, err := w.Write(data)
-	FinalError(err, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func RespondJson(v any, w http.ResponseWriter, extra func(*json.Encoder)) {
@@ -76,7 +72,9 @@ func RespondJson(v any, w http.ResponseWriter, extra func(*json.Encoder)) {
 		extra(encoder)
 	}
 	err := encoder.Encode(v)
-	FinalError(err, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func DeleteCookie(name string, w http.ResponseWriter) {

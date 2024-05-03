@@ -12,37 +12,39 @@ const (
 	TimeFormat          = "2006-01-02 15:04:05" // Don't bother with the milliseconds
 	HashBaseCount       = 5
 	HashIncreaseFactor  = 10000 // How many failures would require a base increase
+	OrphanedPrepend     = "Internal_OrphanedImages"
 	OrphanedPostContent = "orphanedPost"
 )
 
+// NOTE: Ban isn't used
 type Ban struct {
 	range_  string //key?
 	created string // FORMAT: 2023-01-02 HH:MM:SS.MS
-	note    *string
+	note    string // was nullable
 }
 
 type Post struct {
-	pid       int    //key?
-	created   string //time.Time
+	pid       int64  //key?
+	created   string // time.Time in TimeFormat format
 	content   string
 	options   string
 	ipaddress string
-	username  *string
-	tripraw   *string
-	image     *string
-	tid       int //Parent
+	username  string // nullable in db
+	tripraw   string // nullable in db
+	image     string // nullable in db
+	tid       int64  // Parent thread
 }
 
 type Thread struct {
-	tid     int    //key?
-	created string //time.Time
+	tid     int64  //key?
+	created string // time.Time in TimeFormat format
 	subject string
 	deleted bool
-	hash    *string
+	hash    string // nullable in db
 
 	// These are fields we query specially, but are still part of the thread query
 	postCount  int
-	lastPostOn *string //time.Time
+	lastPostOn string //time.Time
 }
 
 func CreateTables(db utils.DbLike) error {
@@ -77,6 +79,7 @@ func CreateTables(db utils.DbLike) error {
 	return utils.CreateTables_VersionedDb(allSql, db, DatabaseVersion)
 }
 
+// Parse a KLAND time, because they have a weird format...
 func parseTime(tstr string) time.Time {
 	t, err := time.Parse(TimeFormat, tstr)
 	if err != nil {
@@ -86,15 +89,19 @@ func parseTime(tstr string) time.Time {
 	return t
 }
 
-func parseTimePtr(tstr *string) time.Time {
-	return parseTime(utils.Unpointer(tstr, ""))
+func bucketSubject(bucket string) string {
+	if bucket == "" {
+		return OrphanedPrepend
+	} else {
+		return fmt.Sprintf("%s_%s", OrphanedPrepend, bucket)
+	}
 }
 
 // Generate a random thread hash that's never been used before. DOES NOT LOCK,
 // you will need to do that!!
 func GenerateThreadHash(db utils.DbLike) (string, error) {
 	retries := 0
-	var count int64
+	var count int
 	for {
 		hash := utils.RandomAsciiName(HashBaseCount + retries/HashIncreaseFactor)
 		// Go look for a thread with this hash. If one doesn't exist, we're good.
@@ -109,42 +116,51 @@ func GenerateThreadHash(db utils.DbLike) (string, error) {
 	}
 }
 
-// Update hash on thread to another random value
-func UpdateThreadHash(db utils.DbLike, tid int) (*Thread, error) {
+// Update hash on thread to another random value. Return the new hash
+func UpdateThreadHash(db utils.DbLike, tid int64) (string, error) {
 	hash, err := GenerateThreadHash(db)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	_, err = db.Exec("UPDATE threads SET hash=? WHERE tid=?", hash, tid)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return utils.FirstErr(GetThreadsByField(db, "tid", tid))
+	return hash, nil //utils.FirstErr(GetThreadsByField(db, "tid", tid))
 }
 
-// Add a bucket thread, generating a random hash. Returns the thread as inserted
-func InsertBucketThread(db utils.DbLike, subject string) (*Thread, error) {
+// Add a bucket thread, generating a random hash. Returns the id of the
+// inserted thread and the hash
+func InsertBucketThread(db utils.DbLike, subject string) (int64, string, error) {
 	hash, err := GenerateThreadHash(db)
 	if err != nil {
-		return nil, err
+		return 0, "", err
 	}
-	_, err = db.Exec("INSERT INTO threads(subject, created, deleted, hash) VALUES (?,?,?,?)",
+	result, err := db.Exec("INSERT INTO threads(subject, created, deleted, hash) VALUES (?,?,?,?)",
 		subject, time.Now().Format(TimeFormat), true, hash)
 	if err != nil {
-		return nil, err
+		return 0, "", err
 	}
-	return utils.FirstErr(GetThreadsByField(db, "subject", subject))
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, "", err
+	}
+	return id, hash, nil
 }
 
-func InsertImagePost(db utils.DbLike, ip string, filename string, tid int) error {
-	_, err := db.Exec("INSERT INTO posts(content, created, ipaddress, image, tid, options) VALUES (?,?,?,?,?,?)",
+// Add a post from the given ip with the given file to the given thread. Returns the
+// id of the post as inserted
+func InsertImagePost(db utils.DbLike, ip string, filename string, tid int64) (int64, error) {
+	result, err := db.Exec("INSERT INTO posts(content, created, ipaddress, image, tid, options) VALUES (?,?,?,?,?,?)",
 		OrphanedPostContent, time.Now().Format(TimeFormat), ip, filename, tid, "")
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil //utils.FirstErr(GetPosts(db, "subject", subject))
+	return result.LastInsertId()
 }
 
+// Generic thread query. You determine the where and limiting clauses, and this function
+// runs and parses the query. You can probably get a library to do this...
 func QueryThreads(db utils.DbLike, where func(string) string, limit func(string) string, params []any) ([]Thread, error) {
 	// The appending to this might suck idk
 	result := make([]Thread, 0)
@@ -159,7 +175,14 @@ func QueryThreads(db utils.DbLike, where func(string) string, limit func(string)
 
 	// Go get the main data
 	rows, err := db.Query(fmt.Sprintf(`
-SELECT t.tid, t.created, t.subject, t.deleted, t.hash, COUNT(p.pid), MAX(p.created) 
+SELECT 
+  t.tid, 
+  t.created, 
+  t.subject, 
+  t.deleted, 
+  COALESCE(t.hash,''), 
+  COUNT(p.pid), 
+  COALESCE(MAX(p.created),'')
 FROM threads t LEFT JOIN posts p ON t.tid = p.tid
 %s
 GROUP BY t.tid
@@ -183,6 +206,8 @@ GROUP BY t.tid
 	return result, nil
 }
 
+// Generic post query. You determine the where and limiting clauses, and this function
+// runs and parses the query. You can probably get a library to do this...
 func QueryPosts(db utils.DbLike, where func(string) string, limit func(string) string, params []any) ([]Post, error) {
 	result := make([]Post, 0)
 	extrawhere := ""
@@ -196,7 +221,16 @@ func QueryPosts(db utils.DbLike, where func(string) string, limit func(string) s
 
 	// Go get the main data
 	rows, err := db.Query(fmt.Sprintf(`
-SELECT p.pid, p.tid, p.created, p.content, p.options, p.ipaddress, p.username, p.tripraw, p.image
+SELECT 
+  p.pid, 
+  p.tid, 
+  p.created, 
+  p.content, 
+  p.options, 
+  p.ipaddress, 
+  COALESCE(p.username,''), 
+  COALESCE(p.tripraw,''),
+  COALESCE(p.image,'')
 FROM posts p
 %s
 %s

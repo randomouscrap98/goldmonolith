@@ -23,6 +23,7 @@ func Unpointer[T any](value *T, def T) T {
 	return *value
 }
 
+// Like dotnet's string.IsNullOrEmpty
 func IsNilOrEmpty(value *string) bool {
 	return value == nil || *value == ""
 }

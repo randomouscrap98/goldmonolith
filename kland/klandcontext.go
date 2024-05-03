@@ -5,15 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	//"regexp"
-	"io"
 	"strconv"
 	"sync"
-	//"time"
 
 	"github.com/gorilla/schema"
 
@@ -26,7 +24,6 @@ type KlandContext struct {
 	templates *template.Template
 	tinsmu    sync.Mutex
 	pinsmu    sync.Mutex
-	//rawImageRegex *regexp.Regexp
 }
 
 func NewKlandContext(config *Config) (*KlandContext, error) {
@@ -82,6 +79,8 @@ func (wc *KlandContext) RunBackground(cancel context.Context, wg *sync.WaitGroup
 	wg.Done()
 }
 
+// Retrieve the default data for any page load. Add your additional data to this
+// map before rendering
 func (kctx *KlandContext) GetDefaultData(r *http.Request) map[string]any {
 	admincookie, err := r.Cookie(AdminIdKey)
 	thisadminid := ""
@@ -105,6 +104,7 @@ func (kctx *KlandContext) GetDefaultData(r *http.Request) map[string]any {
 	return result
 }
 
+// Call this instead of directly accessing templates to do a final render of a page
 func (kctx *KlandContext) RunTemplate(name string, w http.ResponseWriter, data any) {
 	err := kctx.templates.ExecuteTemplate(w, name, data)
 	if err != nil {
@@ -113,7 +113,9 @@ func (kctx *KlandContext) RunTemplate(name string, w http.ResponseWriter, data a
 	}
 }
 
-func (kctx *KlandContext) CheckThreadsConvert(threads []Thread, err error, w http.ResponseWriter) []ThreadView {
+// Does what it says on the tin: if you get a result of many threads, it checks the error
+// for you, writes results to the response, and converts all the threads to views.
+func (kctx *KlandContext) ConvertThreadResult(threads []Thread, err error, w http.ResponseWriter) []ThreadView {
 	if err != nil {
 		log.Printf("ERROR RETRIEVING THREADS: %s", err)
 		http.Error(w, "Error retrieving threads", http.StatusInternalServerError)
@@ -126,7 +128,9 @@ func (kctx *KlandContext) CheckThreadsConvert(threads []Thread, err error, w htt
 	return threadViews
 }
 
-func (kctx *KlandContext) CheckPostsConvert(posts []Post, err error, w http.ResponseWriter) []PostView {
+// Does what it says on the tin: if you get a result of many posts, it checks the error
+// for you, writes results to the response, and converts all the posts to views.
+func (kctx *KlandContext) ConvertPostResult(posts []Post, err error, w http.ResponseWriter) []PostView {
 	if err != nil {
 		log.Printf("ERROR RETRIEVING POSTS: %s", err)
 		http.Error(w, "Error retrieving posts", http.StatusInternalServerError)
@@ -139,26 +143,7 @@ func (kctx *KlandContext) CheckPostsConvert(posts []Post, err error, w http.Resp
 	return postViews
 }
 
-type GetImageQuery struct {
-	Bucket string `schema:"bucket"`
-	AsJSON bool   `schema:"asJSON"`
-	Page   int    `schema:"page"`
-	IPP    int    `schema:"ipp"`
-	View   string `schema:"view"`
-}
-
-func (iquery *GetImageQuery) IntoData(data map[string]any) {
-	// Unfortunately, because we're returning json, we HAVE to do this silliness
-	data["bucket"] = iquery.Bucket
-	data["ipp"] = iquery.IPP
-	data["view"] = iquery.View
-	data["page"] = iquery.Page
-	data["nextPage"] = iquery.Page + 1
-	if iquery.Page > 1 {
-		data["previousPage"] = iquery.Page - 1
-	}
-}
-
+// Parse image query out of request, requires decoder in context
 func (kctx *KlandContext) ParseImageQuery(r *http.Request) (GetImageQuery, error) {
 	params := r.URL.Query()
 	iquery := GetImageQuery{}
@@ -179,38 +164,46 @@ func (kctx *KlandContext) ParseImageQuery(r *http.Request) (GetImageQuery, error
 	return iquery, nil
 }
 
-func bucketSubject(bucket string) string {
-	if bucket == "" {
-		return OrphanedPrepend
-	} else {
-		return fmt.Sprintf("%s_%s", OrphanedPrepend, bucket)
-	}
-}
-
 // Either retrieve the existing bucket thread, or create a new one. It will always
 // have a valid hash after this call, even if it previously did not.
-func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (*Thread, error) {
+func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (Thread, error) {
+	// NOTE: tried to do naked returns, it was awful, just did it another way
+	var thread Thread
 	subject := bucketSubject(bucket)
 	threads, err := GetThreadsByField(db, "subject", subject)
 	if err != nil {
-		return nil, err
+		return thread, err
 	}
 	// Probably safer to just lock here... not too bad
 	kctx.tinsmu.Lock()
 	defer kctx.tinsmu.Unlock()
 	if len(threads) > 0 {
 		// if the thread exists, just check for hash update.
-		thread := threads[0]
-		if utils.IsNilOrEmpty(thread.hash) {
-			log.Printf("Thread %s(%d) doesn't have a hash; generating", thread.subject, thread.tid)
-			return UpdateThreadHash(db, thread.tid)
-		} else {
-			return &thread, nil
+		thread = threads[0]
+		if thread.hash != "" {
+			return thread, nil // THE most normal return. Nearly all will go through here
+		}
+		log.Printf("Thread %s(%d) doesn't have a hash; generating", thread.subject, thread.tid)
+		_, err = UpdateThreadHash(db, thread.tid)
+		if err != nil {
+			return thread, err // Bad db
 		}
 	} else {
 		// The thread needs to be created
-		return InsertBucketThread(db, subject)
+		thread.tid, thread.hash, err = InsertBucketThread(db, subject)
+		if err != nil {
+			return thread, err // Bad db
+		}
 	}
+	// Now we must lookup the thread updated thread... not very fun
+	threads, err = GetThreadsById(db, []int64{thread.tid})
+	if err != nil {
+		return thread, err
+	}
+	if len(threads) < 1 {
+		return thread, &NotFoundError{}
+	}
+	return threads[0], nil
 }
 
 func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.File, error) {

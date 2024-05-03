@@ -60,7 +60,6 @@ VisitPerInterval=100                  # Amount of visits (any) allowed per times
 VisitLimitInterval="1m"               # interval for visit limits
 CookieExpire="8760h"                  # Cookie expiration (for settings/etc)
 IPHeader="X-Real-IP"                  # Header field for user IP (assumes reverse proxy)
-# RawImageRegex="(image/[a-z]+);base-?64,(.*)$" # IDK, you probably don't need to change this...
 ShortUrl="http://localhost:5020/short" # The short domain 
 FullUrl="http://localhost:5020"       # The full domain 
 `, time.Now().Format(time.RFC3339), randomHex)

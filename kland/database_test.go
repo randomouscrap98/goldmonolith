@@ -9,6 +9,8 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/randomouscrap98/goldmonolith/utils"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -47,12 +49,19 @@ func TestOpenDb(t *testing.T) {
 func TestInsertBucketThread(t *testing.T) {
 	db := GetTestDb("insertthread", t)
 	defer db.Close()
-	thread, err := InsertBucketThread(db, "hecking")
+	tid, hash, err := InsertBucketThread(db, "hecking")
 	if err != nil {
 		t.Fatalf("Error on inserting bucket thread: %s", err)
 	}
-	if len(*thread.hash) != HashBaseCount {
-		t.Fatalf("Hash not the right size! Expected %d, got %d", HashBaseCount, len(*thread.hash))
+	thread, err := utils.FirstErr(GetThreadsById(db, []int64{tid}))
+	if err != nil {
+		t.Fatalf("Error retrieving bucket thread: %s", err)
+	}
+	if hash != thread.hash {
+		t.Fatalf("Returned hash does not equal stored hash! %s vs %s", hash, thread.hash)
+	}
+	if len(thread.hash) != HashBaseCount {
+		t.Fatalf("Hash not the right size! Expected %d, got %d", HashBaseCount, len(thread.hash))
 	}
 	if strings.Index(thread.subject, "hecking") < 0 {
 		t.Fatalf("Subject malformed: %s", thread.subject)
@@ -62,36 +71,42 @@ func TestInsertBucketThread(t *testing.T) {
 func TestUpdateThreadHash(t *testing.T) {
 	db := GetTestDb("updatebuckethash", t)
 	defer db.Close()
-	thread, err := InsertBucketThread(db, "hecking")
+	tid, hash, err := InsertBucketThread(db, "hecking")
 	if err != nil {
 		t.Fatalf("Error on inserting bucket thread: %s", err)
 	}
 	// Now we update
-	thread2, err := UpdateThreadHash(db, thread.tid)
+	hash2, err := UpdateThreadHash(db, tid)
 	if err != nil {
 		t.Fatalf("Error updating thread hash: %s", err)
 	}
-	if thread2.hash == thread.hash {
-		t.Fatalf("Hashes were supposed to be different: %s vs %s", *thread2.hash, *thread.hash)
+	if hash == hash2 {
+		t.Fatalf("Hashes were supposed to be different: %s vs %s", hash2, hash)
+	}
+	// Go lookup the thread, it should have the new hash
+	thread, err := utils.FirstErr(GetThreadsById(db, []int64{tid}))
+	if err != nil {
+		t.Fatalf("Error retrieving updated bucket thread: %s", err)
+	}
+	if thread.hash != hash2 {
+		t.Fatalf("Updated bucket record hash didn't match: %s vs %s", thread.hash, hash2)
 	}
 }
 
 func TestInsertManyBucketThreads(t *testing.T) {
-	const REPEATS = 1000
+	const REPEATS = 10000
 	db := GetTestDb("manybuckets", t)
 	defer db.Close()
-	hashes := make(map[string]struct{})
-	var empty struct{}
+	hashes := make(map[string]int64)
 	for i := range REPEATS {
-		thread, err := InsertBucketThread(db, fmt.Sprintf("hecking%d", i))
+		tid, hash, err := InsertBucketThread(db, fmt.Sprintf("hecking%d", i))
 		if err != nil {
 			t.Fatalf("Error on inserting bucket thread: %s", err)
 		}
-		hash := *thread.hash
-		_, ok := hashes[hash]
+		oldtid, ok := hashes[hash]
 		if ok {
-			t.Fatalf("Repeat hash? %s", hash)
+			t.Fatalf("Repeat hash? %s on %d", hash, oldtid)
 		}
-		hashes[hash] = empty
+		hashes[hash] = tid
 	}
 }

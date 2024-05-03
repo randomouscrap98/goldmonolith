@@ -23,7 +23,6 @@ const (
 	AdminIdKey         = "adminId"
 	IsAdminKey         = "isAdmin"
 	PostStyleKey       = "postStyle"
-	OrphanedPrepend    = "Internal_OrphanedImages"
 	LongCookie         = 365 * 24 * 60 * 60
 	DefaultIpp         = 20
 	MaxMultipartMemory = 256_000
@@ -47,6 +46,28 @@ func checkSingleThread(threads []Thread, err error, w http.ResponseWriter) bool 
 	return true
 }
 
+// Query the user can send to image index
+type GetImageQuery struct {
+	Bucket string `schema:"bucket"`
+	AsJSON bool   `schema:"asJSON"`
+	Page   int    `schema:"page"`
+	IPP    int    `schema:"ipp"`
+	View   string `schema:"view"`
+}
+
+// Store query into the given data. It's unfortunately nontrivial...
+func (iquery *GetImageQuery) IntoData(data map[string]any) {
+	// Unfortunately, because we're returning json, we HAVE to do this silliness
+	data["bucket"] = iquery.Bucket
+	data["ipp"] = iquery.IPP
+	data["view"] = iquery.View
+	data["page"] = iquery.Page
+	data["nextPage"] = iquery.Page + 1
+	if iquery.Page > 1 {
+		data["previousPage"] = iquery.Page - 1
+	}
+}
+
 func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
 
@@ -63,7 +84,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			defer db.Close()
 			// Need to get threads from db, is it really ALL of them? Yeesh...
 			threads, err := GetAllThreads(db)
-			threadViews := kctx.CheckThreadsConvert(threads, err, w)
+			threadViews := kctx.ConvertThreadResult(threads, err, w)
 			if threadViews == nil {
 				return
 			}
@@ -90,7 +111,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				return
 			}
 			posts, err := GetPostsInThread(db, tid)
-			postViews := kctx.CheckPostsConvert(posts, err, w)
+			postViews := kctx.ConvertPostResult(posts, err, w)
 			if postViews == nil {
 				return
 			}
@@ -145,9 +166,9 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			}
 
 			if thread != nil {
-				data["publicLink"] = fmt.Sprintf("%s/image?view=%s", kctx.config.RootPath, utils.Unpointer(thread.hash, ""))
+				data["publicLink"] = fmt.Sprintf("%s/image?view=%s", kctx.config.RootPath, thread.hash)
 				posts, err := GetPaginatedPosts(db, int64(thread.tid), iquery.Page-1, iquery.IPP)
-				postViews := kctx.CheckPostsConvert(posts, err, w)
+				postViews := kctx.ConvertPostResult(posts, err, w)
 				if postViews == nil {
 					return
 				}
@@ -280,7 +301,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				http.Error(w, "Couldn't write file", http.StatusInternalServerError)
 				return
 			}
-			err = InsertImagePost(db, ipaddress, finalname, bucketThread.tid)
+			_, err = InsertImagePost(db, ipaddress, finalname, bucketThread.tid)
 			if err != nil {
 				log.Printf("CAN'T INSERT POST: %s", err)
 				http.Error(w, "Couldn't write post", http.StatusInternalServerError)

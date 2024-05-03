@@ -15,6 +15,7 @@ type RuntimeInfo struct {
 	GoroutineCount  uint64
 }
 
+// Pull a uint64 from metrics OR default to 0 (no error)
 func Uint64SafeMetric(sample *metrics.Sample) uint64 {
 	if sample.Value.Kind() == metrics.KindBad {
 		return 0

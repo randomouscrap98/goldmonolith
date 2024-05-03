@@ -5,10 +5,8 @@ import (
 	"fmt"
 )
 
-// type DbConnectionOpener interface {
-// 	OpenDb() (*sql.DB, error)
-// }
-
+// Allows functions to consume either an sql.DB OR an sql.TX, since they have roughly
+// the same interface. Is that dangerous? We'll find out.
 type DbLike interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Query(query string, args ...interface{}) (*sql.Rows, error)
@@ -18,12 +16,6 @@ type DbLike interface {
 // Given the create table / index commands, create all the tables and ALSO add a system
 // value table which contains version information. You can use this table for other things too
 func CreateTables_VersionedDb(allSql []string, db DbLike, version string) error {
-	// db, err := conprov.OpenDb()
-	// if err != nil {
-	// 	return err
-	// }
-	// defer db.Close()
-
 	allSql = append(allSql,
 		`CREATE TABLE IF NOT EXISTS sysvalues (
       "key" TEXT PRIMARY KEY,

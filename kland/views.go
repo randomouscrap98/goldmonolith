@@ -5,13 +5,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"time"
+)
 
-	"github.com/randomouscrap98/goldmonolith/utils"
+const (
+	AnonymousUser = "Anonymous"
 )
 
 type PostView struct {
-	Pid          int       `json:"pid"`
-	Tid          int       `json:"tid"`
+	Pid          int64     `json:"pid"`
+	Tid          int64     `json:"tid"`
 	CreatedOn    time.Time `json:"createdOn"`
 	Content      string    `json:"content"`
 	RealUsername string    `json:"realUsername,omitempty"`
@@ -24,7 +26,7 @@ type PostView struct {
 }
 
 type ThreadView struct {
-	Tid        int       `json:"tid"`
+	Tid        int64     `json:"tid"`
 	Link       string    `json:"link"`
 	Subject    string    `json:"subject"`
 	LastPostOn time.Time `json:"lastPostOn"`
@@ -35,16 +37,24 @@ type ThreadView struct {
 // Convert db post to view
 func ConvertPost(post Post, config *Config) PostView {
 
-	trip := utils.StrGetOrDefault(post.tripraw, "")
+	trip := post.tripraw
 	if trip != "" {
 		hashed := sha512.Sum512([]byte(trip))
 		trip = base64.StdEncoding.EncodeToString(hashed[:])[:10]
 	}
 
-	realUsername := utils.StrGetOrDefault(post.username, "Anonymous")
+	realUsername := post.username
+	if realUsername == "" {
+		realUsername = AnonymousUser
+	}
+
+	image := post.image
+	if image == "" {
+		image = "UNDEFINED"
+	}
 
 	link := fmt.Sprintf("%s/thread/%d#p%d", config.RootPath, post.tid, post.pid)
-	imageLink := fmt.Sprintf("%s/i/%s", config.RootPath, utils.StrGetOrDefault(post.image, "UNDEFINED"))
+	imageLink := fmt.Sprintf("%s/i/%s", config.RootPath, image)
 
 	return PostView{
 		Tid:          post.tid,
@@ -57,7 +67,7 @@ func ConvertPost(post Post, config *Config) PostView {
 		Link:         link,
 		ImageLink:    imageLink,
 		IsBanned:     false, // TODO: GET BANS
-		HasImage:     !utils.IsNilOrEmpty(post.image),
+		HasImage:     post.image != "",
 	}
 }
 
@@ -67,8 +77,8 @@ func ConvertThread(thread Thread, config *Config) ThreadView {
 		Tid:        thread.tid,
 		Subject:    thread.subject,
 		CreatedOn:  parseTime(thread.created),
-		PostCount:  thread.postCount,                //x.Posts.Count(),
-		LastPostOn: parseTimePtr(thread.lastPostOn), //LastPostOn : x.Posts.Max(x => (DateTime?)x.created) ?? new DateTime(0),
+		PostCount:  thread.postCount,             //x.Posts.Count(),
+		LastPostOn: parseTime(thread.lastPostOn), //LastPostOn : x.Posts.Max(x => (DateTime?)x.created) ?? new DateTime(0),
 		Link:       fmt.Sprintf("%s/thread/%d", config.RootPath, thread.tid),
 	}
 }

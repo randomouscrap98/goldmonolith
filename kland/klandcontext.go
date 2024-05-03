@@ -9,7 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
+	//"regexp"
+	"io"
 	"strconv"
 	"sync"
 	//"time"
@@ -20,12 +21,12 @@ import (
 )
 
 type KlandContext struct {
-	config        *Config
-	decoder       *schema.Decoder
-	templates     *template.Template
-	tinsmu        sync.Mutex
-	pinsmu        sync.Mutex
-	rawImageRegex *regexp.Regexp
+	config    *Config
+	decoder   *schema.Decoder
+	templates *template.Template
+	tinsmu    sync.Mutex
+	pinsmu    sync.Mutex
+	//rawImageRegex *regexp.Regexp
 }
 
 func NewKlandContext(config *Config) (*KlandContext, error) {
@@ -210,4 +211,56 @@ func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (*T
 		// The thread needs to be created
 		return InsertBucketThread(db, subject)
 	}
+}
+
+func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.File, error) {
+	tempfile, err := os.CreateTemp(kctx.config.TempPath, "kland_upload_")
+	if err != nil {
+		log.Printf("Couldn't open temp file: %s", err)
+		http.Error(w, "Can't write temp file", http.StatusInternalServerError)
+		return nil, err
+	}
+	_, err = io.Copy(tempfile, r)
+	if err != nil {
+		tempfile.Close()
+		log.Printf("Couldn't write temp file: %s", err)
+		http.Error(w, "Can't write temp file", http.StatusInternalServerError)
+		return nil, err
+	}
+	_, err = tempfile.Seek(0, io.SeekStart)
+	if err != nil {
+		tempfile.Close()
+		log.Printf("Couldn't seek temp file: %s", err)
+		http.Error(w, "Can't write temp file", http.StatusInternalServerError)
+		return nil, err
+	}
+	return tempfile, nil
+}
+
+func (kctx *KlandContext) MoveAndRegisterUpload(path string, extension string) (string, error) {
+	kctx.pinsmu.Lock()
+	defer kctx.pinsmu.Unlock()
+	// generate a valid file name (one that is not currently used)
+	retries := 0
+	var name string
+	for {
+		name = utils.RandomAsciiName(HashBaseCount + retries/HashIncreaseFactor)
+		files, err := filepath.Glob(filepath.Join(kctx.config.ImagePath, fmt.Sprintf("%s*", name)))
+		if err != nil {
+			return "", err
+		}
+		// Nothing found, that's good, it's a usable file
+		if len(files) == 0 {
+			break
+		}
+		retries += 1
+	}
+	// now we move the file and we're done
+	filename := fmt.Sprintf("%s.%s", name, extension)
+	dest := filepath.Join(kctx.config.ImagePath, filename)
+	err := os.Rename(path, dest)
+	if err != nil {
+		return "", err
+	}
+	return filename, nil
 }

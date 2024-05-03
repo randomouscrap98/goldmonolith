@@ -1,10 +1,15 @@
 package kland
 
 import (
+	"encoding/base64"
 	"fmt"
+	//"io"
 	"log"
+	"mime"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -212,7 +217,9 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				return
 			}
 			defer db.Close()
-			//realRedirect := utils.StringToBool(r.FormValue("redirect"))
+			raw := r.FormValue("raw")
+			animation := r.FormValue("animation")
+			realRedirect := utils.StringToBool(r.FormValue("redirect"))
 			//realShort := utils.StringToBool(r.FormValue("shorturl"))
 			//imageUrl := ""
 			//finalImageName := ""
@@ -227,7 +234,77 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				http.Error(w, "Couldn't get bucket thread", http.StatusInternalServerError)
 				return
 			}
-			w.Write([]byte(fmt.Sprintf("%v", bucketThread)))
+			// tempfile, err := os.CreateTemp(kctx.config.TempPath, "kland_upload_")
+			// filemoved := false
+			// if err != nil {
+			// 	log.Printf("Couldn't open temp file: %s", err)
+			// 	http.Error(w, "Can't write temp file", http.StatusInternalServerError)
+			// 	return
+			// }
+			// defer func() {
+			// 	tempfile.Close()
+			// 	if !filemoved {
+			// 		err := os.Remove(tempfile.Name())
+			// 		if err != nil {
+			// 			log.Printf("Couldn't remove tempfile %s: %s", tempfile.Name(), err)
+			// 		}
+			// 	}
+			// }()
+      var outfile *os.File
+			file, _, err := r.FormFile("image")
+			if err == nil {
+				// The actual file is here, let's put it somewhere
+        outfile, err = kctx.WriteTemp(file, w)
+        if err != nil {
+          return
+        }
+			} else if raw != "" {
+				// This is a base64 thing, pretty simple to parse.
+				firstComma := strings.IndexRune(raw, ',')
+				if firstComma < 0 {
+					http.Error(w, "Malformed raw image string (missing comma)", http.StatusBadRequest)
+					return
+				}
+				reader := strings.NewReader(raw[firstComma+1:])
+				decoder := base64.NewDecoder(base64.StdEncoding, reader)
+        outfile, err = kctx.WriteTemp(decoder, w)
+        if err != nil {
+          return
+        }
+			} else if animation != "" {
+				http.Error(w, "Animation decoding not yet supported", http.StatusTeapot)
+				return
+			}
+			ctype, err := utils.DetectContentType(outfile)
+      err = outfile.Close()
+      if err != nil {
+        log.Printf("CAN'T CLOSE NEW FILE: %s", err)
+				http.Error(w, "Couldn't write temp file", http.StatusInternalServerError)
+        return
+      }
+			if strings.Index(ctype, "image") != 0 {
+				http.Error(w, "Server rejected file: couldn't detect image format!", http.StatusBadRequest)
+				return
+			}
+			extension, err := utils.FirstErr(mime.ExtensionsByType(ctype))
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Server rejected file: %s", err), http.StatusBadRequest)
+				return
+			}
+      // Now we can generate a random name and move hte file
+      finalname, err := kctx.MoveAndRegisterUpload(outfile.Name(), *extension)
+      if realShort {
+
+      }else {
+
+      }
+
+      if realRedirect {
+        http.Redirect(w, r, , http.StatusTemporaryRedirect)
+      } else {
+
+      }
+			//w.Write([]byte(fmt.Sprintf("%v", bucketThread)))
 		})
 	})
 

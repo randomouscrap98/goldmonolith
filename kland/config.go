@@ -26,13 +26,14 @@ type Config struct {
 	TextPath            string         // path to text data (animations?) on local filesystem
 	StaticFilePath      string         // path to all static files
 	TemplatePath        string         // path to all kland templates
+	TempPath            string         // Place to put all temporary files
 	UploadPerInterval   int            // Amount of uploads (any) allowed per timespan
 	UploadLimitInterval utils.Duration // interval for upload limits
 	VisitPerInterval    int            // Amount of visits (any) allowed per timespan
 	VisitLimitInterval  utils.Duration // interval for visit limits
 	CookieExpire        utils.Duration // Expiration of cookie (admin cookie?)
 	IpHeader            string         // The header field for the user's IP
-	RawImageRegex       string
+	//RawImageRegex       string
 }
 
 func GetDefaultConfig_Toml() string {
@@ -51,13 +52,14 @@ ImagePath="data/kland/images"         # Path to image folder
 TextPath="data/kland/text"            # Path to text folder (animations?)
 StaticFilePath="static/kland"         # Path to static files (currently only valid in monolith)
 TemplatePath="static/kland/templates" # Path to all template files
+TempPath="/tmp"                       # Path to put all temporary files
 UploadPerInterval=20                  # Amount of uploads (any) per interval
 UploadLimitInterval="1m"              # Interval for upload limit
 VisitPerInterval=100                  # Amount of visits (any) allowed per timespan
 VisitLimitInterval="1m"               # interval for visit limits
 CookieExpire="8760h"                  # Cookie expiration (for settings/etc)
 IPHeader="X-Real-IP"                  # Header field for user IP (assumes reverse proxy)
-RawImageRegex="(image/[a-z]+);base-?64,(.*)$" # IDK, you probably don't need to change this...
+# RawImageRegex="(image/[a-z]+);base-?64,(.*)$" # IDK, you probably don't need to change this...
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

@@ -33,7 +33,8 @@ type Config struct {
 	VisitLimitInterval  utils.Duration // interval for visit limits
 	CookieExpire        utils.Duration // Expiration of cookie (admin cookie?)
 	IpHeader            string         // The header field for the user's IP
-	//RawImageRegex       string
+	ShortUrl            string         // The endpoint for the short url
+	//FullUrl             string         // The url for the "real" endpoint (where kland is hosted)
 }
 
 func GetDefaultConfig_Toml() string {
@@ -60,6 +61,8 @@ VisitLimitInterval="1m"               # interval for visit limits
 CookieExpire="8760h"                  # Cookie expiration (for settings/etc)
 IPHeader="X-Real-IP"                  # Header field for user IP (assumes reverse proxy)
 # RawImageRegex="(image/[a-z]+);base-?64,(.*)$" # IDK, you probably don't need to change this...
+ShortUrl="http://localhost/short"     # The short domain 
+# FullUrl="http://localhost/full"       # The full domain 
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

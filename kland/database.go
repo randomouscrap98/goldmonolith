@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	DatabaseVersion    = "1"
-	TimeFormat         = "2006-01-02 15:04:05" // Don't bother with the milliseconds
-	HashBaseCount      = 5
-	HashIncreaseFactor = 10000 // How many failures would require a base increase
+	DatabaseVersion     = "1"
+	TimeFormat          = "2006-01-02 15:04:05" // Don't bother with the milliseconds
+	HashBaseCount       = 5
+	HashIncreaseFactor  = 10000 // How many failures would require a base increase
+	OrphanedPostContent = "orphanedPost"
 )
 
 type Ban struct {
@@ -133,6 +134,15 @@ func InsertBucketThread(db utils.DbLike, subject string) (*Thread, error) {
 		return nil, err
 	}
 	return utils.FirstErr(GetThreadsByField(db, "subject", subject))
+}
+
+func InsertImagePost(db utils.DbLike, ip string, filename string, tid int) error {
+	_, err := db.Exec("INSERT INTO posts(content, created, ipaddress, image, tid) VALUES (?,?,?,?,?)",
+		OrphanedPostContent, time.Now().Format(TimeFormat), ip, filename, tid)
+	if err != nil {
+		return err
+	}
+	return nil //utils.FirstErr(GetPosts(db, "subject", subject))
 }
 
 func QueryThreads(db utils.DbLike, where func(string) string, limit func(string) string, params []any) ([]Thread, error) {

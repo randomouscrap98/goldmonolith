@@ -220,9 +220,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			raw := r.FormValue("raw")
 			animation := r.FormValue("animation")
 			realRedirect := utils.StringToBool(r.FormValue("redirect"))
-			//realShort := utils.StringToBool(r.FormValue("shorturl"))
-			//imageUrl := ""
-			//finalImageName := ""
+			realShort := utils.StringToBool(r.FormValue("shorturl"))
 			ipaddress := r.Header.Get(kctx.config.IpHeader)
 			if ipaddress == "" {
 				ipaddress = "unknown"
@@ -234,30 +232,14 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				http.Error(w, "Couldn't get bucket thread", http.StatusInternalServerError)
 				return
 			}
-			// tempfile, err := os.CreateTemp(kctx.config.TempPath, "kland_upload_")
-			// filemoved := false
-			// if err != nil {
-			// 	log.Printf("Couldn't open temp file: %s", err)
-			// 	http.Error(w, "Can't write temp file", http.StatusInternalServerError)
-			// 	return
-			// }
-			// defer func() {
-			// 	tempfile.Close()
-			// 	if !filemoved {
-			// 		err := os.Remove(tempfile.Name())
-			// 		if err != nil {
-			// 			log.Printf("Couldn't remove tempfile %s: %s", tempfile.Name(), err)
-			// 		}
-			// 	}
-			// }()
-      var outfile *os.File
+			var outfile *os.File
 			file, _, err := r.FormFile("image")
 			if err == nil {
 				// The actual file is here, let's put it somewhere
-        outfile, err = kctx.WriteTemp(file, w)
-        if err != nil {
-          return
-        }
+				outfile, err = kctx.WriteTemp(file, w)
+				if err != nil {
+					return
+				}
 			} else if raw != "" {
 				// This is a base64 thing, pretty simple to parse.
 				firstComma := strings.IndexRune(raw, ',')
@@ -267,21 +249,21 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				}
 				reader := strings.NewReader(raw[firstComma+1:])
 				decoder := base64.NewDecoder(base64.StdEncoding, reader)
-        outfile, err = kctx.WriteTemp(decoder, w)
-        if err != nil {
-          return
-        }
+				outfile, err = kctx.WriteTemp(decoder, w)
+				if err != nil {
+					return
+				}
 			} else if animation != "" {
 				http.Error(w, "Animation decoding not yet supported", http.StatusTeapot)
 				return
 			}
 			ctype, err := utils.DetectContentType(outfile)
-      err = outfile.Close()
-      if err != nil {
-        log.Printf("CAN'T CLOSE NEW FILE: %s", err)
+			err = outfile.Close()
+			if err != nil {
+				log.Printf("CAN'T CLOSE NEW FILE: %s", err)
 				http.Error(w, "Couldn't write temp file", http.StatusInternalServerError)
-        return
-      }
+				return
+			}
 			if strings.Index(ctype, "image") != 0 {
 				http.Error(w, "Server rejected file: couldn't detect image format!", http.StatusBadRequest)
 				return
@@ -291,20 +273,27 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				http.Error(w, fmt.Sprintf("Server rejected file: %s", err), http.StatusBadRequest)
 				return
 			}
-      // Now we can generate a random name and move hte file
-      finalname, err := kctx.MoveAndRegisterUpload(outfile.Name(), *extension)
-      if realShort {
+			// Now we can generate a random name and move hte file
+			finalname, err := kctx.MoveAndRegisterUpload(outfile.Name(), *extension)
+			err = InsertImagePost(db, ipaddress, finalname, bucketThread.tid)
+			if err != nil {
+				log.Printf("CAN'T INSERT POST: %s", err)
+				http.Error(w, "Couldn't write post", http.StatusInternalServerError)
+				return
+			}
 
-      }else {
+			imageUrl := ""
+			if realShort {
+				imageUrl = fmt.Sprintf("%s/finalname", kctx.config.ShortUrl)
+			} else {
+				imageUrl = fmt.Sprintf("https://%s%s/i/%s", r.URL.Hostname(), kctx.config.RootPath, finalname)
+			}
 
-      }
-
-      if realRedirect {
-        http.Redirect(w, r, , http.StatusTemporaryRedirect)
-      } else {
-
-      }
-			//w.Write([]byte(fmt.Sprintf("%v", bucketThread)))
+			if realRedirect {
+				http.Redirect(w, r, imageUrl, http.StatusTemporaryRedirect)
+			} else {
+				w.Write([]byte(imageUrl)) //fmt.Sprintf("%v", bucketThread)))
+			}
 		})
 	})
 

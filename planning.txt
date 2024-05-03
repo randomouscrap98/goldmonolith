@@ -1,0 +1,3 @@
+- Rsync kland images to oboy (data/kland/images)
+- Move *.txt to data/kland/text
+- Make sure data can write to tmp folders

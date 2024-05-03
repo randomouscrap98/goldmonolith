@@ -3,7 +3,7 @@ package kland
 import (
 	"encoding/base64"
 	"fmt"
-	//"io"
+	"io"
 	"log"
 	"mime"
 	"net/http"
@@ -66,6 +66,15 @@ func (iquery *GetImageQuery) IntoData(data map[string]any) {
 	if iquery.Page > 1 {
 		data["previousPage"] = iquery.Page - 1
 	}
+}
+
+type UploadImageQuery struct {
+	raw       string
+	animation string
+	redirect  bool
+	short     bool
+	ipaddress string
+	bucket    string
 }
 
 func (kctx *KlandContext) GetHandler() (http.Handler, error) {
@@ -226,6 +235,12 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 		r.Post("/uploadimage", func(w http.ResponseWriter, r *http.Request) {
 			// WE want to parse the form so we can set the mem size...
 			r.ParseMultipartForm(MaxMultipartMemory)
+			defer func() {
+				err := r.MultipartForm.RemoveAll()
+				if err != nil {
+					log.Printf("ERROR REMOVING TEMP FORM FILE: %s", err)
+				}
+			}()
 			// Set limits on the body
 			r.Body = http.MaxBytesReader(w, r.Body, int64(kctx.config.MaxImageSize))
 			if r.FormValue("url") != "" {
@@ -238,46 +253,48 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				return
 			}
 			defer db.Close()
-			raw := r.FormValue("raw")
-			animation := r.FormValue("animation")
-			realRedirect := utils.StringToBool(r.FormValue("redirect"))
-			realShort := utils.StringToBool(r.FormValue("shorturl"))
-			ipaddress := r.Header.Get(kctx.config.IpHeader)
-			if ipaddress == "" {
-				ipaddress = "unknown"
-			}
-			bucket := r.FormValue("bucket")
-			bucketThread, err := kctx.GetOrCreateBucketThread(db, bucket)
+			form := kctx.ParseImageUploadQuery(r)
+			bucketThread, err := kctx.GetOrCreateBucketThread(db, form.bucket)
 			if err != nil {
 				log.Printf("Couldn't get bucket thread on upload: %s", err)
 				http.Error(w, "Couldn't get bucket thread", http.StatusInternalServerError)
 				return
 			}
-			var outfile *os.File
-			file, _, err := r.FormFile("image")
-			if err == nil {
-				// The actual file is here, let's put it somewhere
-				outfile, err = kctx.WriteTemp(file, w)
-				if err != nil {
+			var outfile io.ReadSeekCloser
+			outfile, _, err = r.FormFile("image")
+			if err != nil { // Couldn't load the form file, it needs to be one of two other things
+				if form.raw != "" {
+					// This is a base64 thing, pretty simple to parse.
+					firstComma := strings.IndexRune(form.raw, ',')
+					if firstComma < 0 {
+						http.Error(w, "Malformed raw image string (missing comma)", http.StatusBadRequest)
+						return
+					}
+					reader := strings.NewReader(form.raw[firstComma+1:])
+					decoder := base64.NewDecoder(base64.StdEncoding, reader)
+					outfile, err = kctx.WriteTemp(decoder, w)
+					if err != nil {
+						return
+					}
+				} else if form.animation != "" {
+					http.Error(w, "Animation decoding not yet supported", http.StatusTeapot)
 					return
 				}
-			} else if raw != "" {
-				// This is a base64 thing, pretty simple to parse.
-				firstComma := strings.IndexRune(raw, ',')
-				if firstComma < 0 {
-					http.Error(w, "Malformed raw image string (missing comma)", http.StatusBadRequest)
-					return
-				}
-				reader := strings.NewReader(raw[firstComma+1:])
-				decoder := base64.NewDecoder(base64.StdEncoding, reader)
-				outfile, err = kctx.WriteTemp(decoder, w)
-				if err != nil {
-					return
-				}
-			} else if animation != "" {
-				http.Error(w, "Animation decoding not yet supported", http.StatusTeapot)
-				return
-			}
+				// outfile, ok = file.(*os.File)
+				// if !ok { // Somehow the file is in memory?
+				// 	// The actual file is here, let's put it somewhere
+				// 	outfile, err = kctx.WriteTemp(file, w)
+				// 	// Because we're here, we can specifically close the file. The file
+				// 	// is some in-memory buffer AND we're done with it; we already wrote it to fs
+				// 	file.Close()
+				// 	if err != nil {
+				// 		return
+				// 	}
+				// 	log.Printf("Uploaded file was in memory; wrote to fs")
+				// } else {
+				// 	log.Printf("Uploaded file already temp")
+				// }
+			} //else
 			ctype, err := utils.DetectContentType(outfile)
 			err = outfile.Close()
 			if err != nil {
@@ -301,7 +318,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				http.Error(w, "Couldn't write file", http.StatusInternalServerError)
 				return
 			}
-			_, err = InsertImagePost(db, ipaddress, finalname, bucketThread.tid)
+			_, err = InsertImagePost(db, form.ipaddress, finalname, bucketThread.tid)
 			if err != nil {
 				log.Printf("CAN'T INSERT POST: %s", err)
 				http.Error(w, "Couldn't write post", http.StatusInternalServerError)
@@ -309,7 +326,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			}
 
 			imageUrl := ""
-			if realShort {
+			if form.short {
 				imageUrl = fmt.Sprintf("%s/finalname", kctx.config.ShortUrl)
 			} else {
 				imageUrl = fmt.Sprintf("%s%s/i/%s", kctx.config.FullUrl, kctx.config.RootPath, finalname)
@@ -317,7 +334,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 
 			log.Printf("Image url: %s", imageUrl)
 
-			if realRedirect {
+			if form.redirect {
 				http.Redirect(w, r, imageUrl, http.StatusSeeOther)
 			} else {
 				w.Write([]byte(imageUrl)) //fmt.Sprintf("%v", bucketThread)))

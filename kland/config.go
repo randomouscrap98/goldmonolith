@@ -51,7 +51,7 @@ MaxImageSize=10_000_000               # Maximum image upload size
 DatabasePath="data/kland/kland.db"    # Path to database (just data, not images)
 ImagePath="data/kland/images"         # Path to image folder
 TextPath="data/kland/text"            # Path to text folder (animations?)
-TempPath="data/kland/tmp"             # Path to put all temporary files
+TempPath="data/tmp"                   # Path to put all temporary files
 StaticFilePath="static/kland"         # Path to static files (currently only valid in monolith)
 TemplatePath="static/kland/templates" # Path to all template files
 UploadPerInterval=20                  # Amount of uploads (any) per interval
@@ -60,8 +60,8 @@ VisitPerInterval=100                  # Amount of visits (any) allowed per times
 VisitLimitInterval="1m"               # interval for visit limits
 CookieExpire="8760h"                  # Cookie expiration (for settings/etc)
 IPHeader="X-Real-IP"                  # Header field for user IP (assumes reverse proxy)
-ShortUrl="http://localhost:5020/short" # The short domain 
-FullUrl="http://localhost:5020"       # The full domain 
+ShortUrl="http://localhost:5020"      # The short domain 
+FullUrl="http://127.0.0.1:5020"       # The full domain 
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

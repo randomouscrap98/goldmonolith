@@ -164,6 +164,20 @@ func (kctx *KlandContext) ParseImageQuery(r *http.Request) (GetImageQuery, error
 	return iquery, nil
 }
 
+func (kctx *KlandContext) ParseImageUploadQuery(r *http.Request) UploadImageQuery {
+	result := UploadImageQuery{}
+	result.raw = r.FormValue("raw")
+	result.animation = r.FormValue("animation")
+	result.redirect = utils.StringToBool(r.FormValue("redirect"))
+	result.short = utils.StringToBool(r.FormValue("shorturl"))
+	result.ipaddress = r.Header.Get(kctx.config.IpHeader)
+	if result.ipaddress == "" {
+		result.ipaddress = "unknown"
+	}
+	result.bucket = r.FormValue("bucket")
+	return result
+}
+
 // Either retrieve the existing bucket thread, or create a new one. It will always
 // have a valid hash after this call, even if it previously did not.
 func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (Thread, error) {
@@ -201,7 +215,7 @@ func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (Th
 		return thread, err
 	}
 	if len(threads) < 1 {
-		return thread, &NotFoundError{}
+		return thread, &utils.NotFoundError{}
 	}
 	return threads[0], nil
 }

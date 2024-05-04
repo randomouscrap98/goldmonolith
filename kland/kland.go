@@ -7,7 +7,6 @@ import (
 	"log"
 	"mime"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -235,12 +234,6 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 		r.Post("/uploadimage", func(w http.ResponseWriter, r *http.Request) {
 			// WE want to parse the form so we can set the mem size...
 			r.ParseMultipartForm(MaxMultipartMemory)
-			// defer func() {
-			// 	err := r.MultipartForm.RemoveAll()
-			// 	if err != nil {
-			// 		log.Printf("ERROR REMOVING TEMP FORM FILE: %s", err)
-			// 	}
-			// }()
 			// Set limits on the body
 			r.Body = http.MaxBytesReader(w, r.Body, int64(kctx.config.MaxImageSize))
 			if r.FormValue("url") != "" {
@@ -282,24 +275,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 					return
 				}
 			}
-			defer func() {
-				err := outfile.Close()
-				if err != nil {
-					log.Printf("CAN'T CLOSE UPLOAD TEMP FILE: %s", err)
-					return
-				}
-				realfile, ok := outfile.(*os.File)
-				if ok {
-					err := os.Remove(realfile.Name())
-					if err != nil {
-						log.Printf("CAN'T DELETE UPLOAD TEMP FILE: %s", err)
-					} else {
-						log.Printf("Deleted underlying temp file: %s", realfile.Name())
-					}
-				} else {
-					log.Printf("Temp file is in memory, no file delete")
-				}
-			}()
+			defer CloseDeleteUploadFile(outfile)
 			ctype, err := utils.DetectContentType(outfile)
 			if strings.Index(ctype, "image") != 0 {
 				http.Error(w, "Server rejected file: couldn't detect image format!", http.StatusBadRequest)

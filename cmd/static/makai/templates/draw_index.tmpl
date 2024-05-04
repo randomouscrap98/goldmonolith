@@ -6,6 +6,7 @@
     <script src="{{.root}}/draw/randomousCanvas.js?{{.cachebust}}" ></script>
     <script src="{{.root}}/draw/simpledraw2.js?{{.cachebust}}" ></script>
    <script>
+      var DRAWROOT = "{{.root}}/draw/"
       var drawer;
       var reloading = false;
       var originalControlsWidth;
@@ -141,7 +142,7 @@
             data.append("drawing", drawer.drawer.ToString()); 
             data.append("name", drawingName);
             data.append("action", "save"); 
-            RequestUtilities.XHRSimple("/draw/manager", function(response)
+            RequestUtilities.XHRSimple(DRAWROOT + "manager", function(response)
             {
                var output = JSON.parse(response);
                if(output.result)
@@ -201,7 +202,7 @@
             if(svgs[i])
             {
                var img = new Image();
-               img.src = "/draw/" + svgs[i];
+               img.src = DRAWROOT + svgs[i];
                tools[i].appendChild(img);
             }
          }
@@ -210,7 +211,7 @@
          for(var i = 0; i < actions.length; i++)
          {
             var img = new Image();
-            img.src = "/draw/" + svgs[i];
+            img.src = DRAWROOT + svgs[i];
             actions[i].appendChild(img);
          }
       }
@@ -226,7 +227,7 @@
          data.append("artistID", getArtistID());
          data.append("drawingID", id);
          data.append("action", "load");
-         RequestUtilities.XHRSimple("/draw/manager", function(response)
+         RequestUtilities.XHRSimple(DRAWROOT + "manager", function(response)
          {
             try
             {
@@ -267,7 +268,7 @@
          var data = new FormData();
          data.append("artistID", artistID);
          data.append("action", "list");
-         RequestUtilities.XHRSimple("/draw/manager", function(response)
+         RequestUtilities.XHRSimple(DRAWROOT + "manager", function(response)
          {
             //console.debug("Response for file list refresh: \n" + response);
             var json = JSON.parse(response);
@@ -383,8 +384,8 @@
          height: 100%;
          font-family: sans-serif;
       }
-      canvas.draw { background-image: url("/draw/grid.png"); }
-      .simpledraw .layers canvas { background-image: url("/draw/grid.png"); background-size: 4px;}
+      canvas.draw { background-image: url("{{.root}}/draw/grid.png"); }
+      .simpledraw .layers canvas { background-image: url("{{.root}}/draw/grid.png"); background-size: 4px;}
       .simpledraw .controls button img {
          width: 100%;
          height: 100%; 

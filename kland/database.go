@@ -11,7 +11,7 @@ const (
 	DatabaseVersion     = "1"
 	TimeFormat          = "2006-01-02 15:04:05" // Don't bother with the milliseconds
 	HashBaseCount       = 5
-	HashIncreaseFactor  = 10000 // How many failures would require a base increase
+	HashIncreaseFactor  = 100 // How many failures would require a base increase
 	OrphanedPrepend     = "Internal_OrphanedImages"
 	OrphanedPostContent = "orphanedPost"
 )

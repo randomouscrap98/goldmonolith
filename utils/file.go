@@ -3,6 +3,7 @@ package utils
 import (
 	"io"
 	"net/http"
+	"os"
 )
 
 // Wrapper arond http.DetectContentType, since it's nontrivial to get the first
@@ -18,4 +19,18 @@ func DetectContentType(reader io.ReadSeeker) (string, error) {
 		return "", err
 	}
 	return http.DetectContentType(dctbuf), nil
+}
+
+// Check to see if any of the given paths exist. If any throw an error
+// that isn't "not found", that error is rethrown
+func CheckAnyPathExists(paths []string) (bool, error) {
+	for _, p := range paths {
+		_, err := os.Stat(p)
+		if err == nil { // File was found
+			return true, nil
+		} else if !os.IsNotExist(err) { // File was ERROR
+			return false, err
+		}
+	}
+	return false, nil
 }

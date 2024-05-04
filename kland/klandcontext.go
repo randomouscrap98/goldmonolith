@@ -3,7 +3,6 @@ package kland
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -250,41 +249,23 @@ func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.Fil
 	return tempfile, nil
 }
 
-func (kctx *KlandContext) MoveAndRegisterUpload(path string, extension string) (string, error) {
-	if len(extension) == 0 {
-		return "", fmt.Errorf("you must provide an extension")
+func (kctx *KlandContext) RegisterUpload(file io.ReadSeeker, extension string) (string, error) {
+	_, err := file.Seek(0, io.SeekStart)
+	if err != nil {
+		return "", nil
 	}
 	kctx.pinsmu.Lock()
 	defer kctx.pinsmu.Unlock()
-	// generate a valid file name (one that is not currently used)
-	retries := 0
-	var name string
-	for {
-		name = utils.RandomAsciiName(HashBaseCount + retries/HashIncreaseFactor)
-		files, err := filepath.Glob(filepath.Join(kctx.config.ImagePath, fmt.Sprintf("%s*", name)))
-		if err != nil {
-			return "", err
-		}
-		// Nothing found, that's good, it's a usable file
-		if len(files) == 0 {
-			break
-		}
-		retries += 1
-	}
-	if extension[0] == '.' {
-		extension = extension[1:]
-	}
-	// now we move the file and we're done
-	filename := fmt.Sprintf("%s.%s", name, extension)
+	filename, err := GenerateRandomUniqueFilename(kctx.config.ImagePath, extension)
 	dest := filepath.Join(kctx.config.ImagePath, filename)
-	destabs, err := filepath.Abs(dest)
+	newfile, err := os.Create(dest)
 	if err != nil {
 		return "", err
 	}
-	err = os.Rename(path, destabs)
-	log.Printf("Moved %s to %s", path, destabs)
+	_, err = io.Copy(newfile, file)
 	if err != nil {
 		return "", err
 	}
+	//log.Printf("Moved %s to %s", path, destabs)
 	return filename, nil
 }

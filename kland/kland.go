@@ -235,12 +235,12 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 		r.Post("/uploadimage", func(w http.ResponseWriter, r *http.Request) {
 			// WE want to parse the form so we can set the mem size...
 			r.ParseMultipartForm(MaxMultipartMemory)
-			defer func() {
-				err := r.MultipartForm.RemoveAll()
-				if err != nil {
-					log.Printf("ERROR REMOVING TEMP FORM FILE: %s", err)
-				}
-			}()
+			// defer func() {
+			// 	err := r.MultipartForm.RemoveAll()
+			// 	if err != nil {
+			// 		log.Printf("ERROR REMOVING TEMP FORM FILE: %s", err)
+			// 	}
+			// }()
 			// Set limits on the body
 			r.Body = http.MaxBytesReader(w, r.Body, int64(kctx.config.MaxImageSize))
 			if r.FormValue("url") != "" {
@@ -276,32 +276,31 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 					if err != nil {
 						return
 					}
+					// Don't need to close outfile, we're going to use it later, THEY can close it...
 				} else if form.animation != "" {
 					http.Error(w, "Animation decoding not yet supported", http.StatusTeapot)
 					return
 				}
-				// outfile, ok = file.(*os.File)
-				// if !ok { // Somehow the file is in memory?
-				// 	// The actual file is here, let's put it somewhere
-				// 	outfile, err = kctx.WriteTemp(file, w)
-				// 	// Because we're here, we can specifically close the file. The file
-				// 	// is some in-memory buffer AND we're done with it; we already wrote it to fs
-				// 	file.Close()
-				// 	if err != nil {
-				// 		return
-				// 	}
-				// 	log.Printf("Uploaded file was in memory; wrote to fs")
-				// } else {
-				// 	log.Printf("Uploaded file already temp")
-				// }
-			} //else
-			ctype, err := utils.DetectContentType(outfile)
-			err = outfile.Close()
-			if err != nil {
-				log.Printf("CAN'T CLOSE NEW FILE: %s", err)
-				http.Error(w, "Couldn't write temp file", http.StatusInternalServerError)
-				return
 			}
+			defer func() {
+				err := outfile.Close()
+				if err != nil {
+					log.Printf("CAN'T CLOSE UPLOAD TEMP FILE: %s", err)
+					return
+				}
+				realfile, ok := outfile.(*os.File)
+				if ok {
+					err := os.Remove(realfile.Name())
+					if err != nil {
+						log.Printf("CAN'T DELETE UPLOAD TEMP FILE: %s", err)
+					} else {
+						log.Printf("Deleted underlying temp file: %s", realfile.Name())
+					}
+				} else {
+					log.Printf("Temp file is in memory, no file delete")
+				}
+			}()
+			ctype, err := utils.DetectContentType(outfile)
 			if strings.Index(ctype, "image") != 0 {
 				http.Error(w, "Server rejected file: couldn't detect image format!", http.StatusBadRequest)
 				return
@@ -311,8 +310,8 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				http.Error(w, fmt.Sprintf("Server rejected file: %s", err), http.StatusBadRequest)
 				return
 			}
-			// Now we can generate a random name and move hte file
-			finalname, err := kctx.MoveAndRegisterUpload(outfile.Name(), *extension)
+			// Now we can generate a random name and move the file
+			finalname, err := kctx.RegisterUpload(outfile, *extension)
 			if err != nil {
 				log.Printf("Can't move upload: %s", err)
 				http.Error(w, "Couldn't write file", http.StatusInternalServerError)
@@ -337,7 +336,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			if form.redirect {
 				http.Redirect(w, r, imageUrl, http.StatusSeeOther)
 			} else {
-				w.Write([]byte(imageUrl)) //fmt.Sprintf("%v", bucketThread)))
+				w.Write([]byte(imageUrl))
 			}
 		})
 	})

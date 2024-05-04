@@ -3,6 +3,7 @@ package kland
 import (
 	"context"
 	"database/sql"
+	//"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gorilla/schema"
 
@@ -23,6 +25,7 @@ type KlandContext struct {
 	templates *template.Template
 	tinsmu    sync.Mutex
 	pinsmu    sync.Mutex
+	created   time.Time
 }
 
 func NewKlandContext(config *Config) (*KlandContext, error) {
@@ -69,6 +72,7 @@ func NewKlandContext(config *Config) (*KlandContext, error) {
 		config:    config,
 		templates: templates,
 		decoder:   schema.NewDecoder(),
+		created:   time.Now(),
 	}, nil
 }
 
@@ -100,6 +104,8 @@ func (kctx *KlandContext) GetDefaultData(r *http.Request) map[string]any {
 	result[PostStyleKey] = style
 	result["runtimeInfo"] = rinfo
 	result["requestUri"] = r.URL.RequestURI()
+	result["cachebust"] = kctx.created.Format(time.RFC3339)
+	//"RawHtml": func(c string) template.HTML { return template.HTML(c) },
 	return result
 }
 
@@ -158,7 +164,7 @@ func (kctx *KlandContext) ParseImageQuery(r *http.Request) (GetImageQuery, error
 		iquery.Page = 1
 	}
 	if iquery.IPP <= 0 {
-		iquery.IPP = DefaultIpp
+		iquery.IPP = kctx.config.DefaultIPP
 	}
 	return iquery, nil
 }

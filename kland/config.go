@@ -35,6 +35,8 @@ type Config struct {
 	IpHeader            string         // The header field for the user's IP
 	ShortUrl            string         // The endpoint for the short url
 	FullUrl             string         // The url for the "real" endpoint (where kland is hosted)
+	DefaultIPP          int            // Default number of images per page
+	MaxMultipartMemory  int64          // Maximum image upload form size before dumping to disk
 }
 
 func GetDefaultConfig_Toml() string {
@@ -62,6 +64,8 @@ CookieExpire="8760h"                  # Cookie expiration (for settings/etc)
 IPHeader="X-Real-IP"                  # Header field for user IP (assumes reverse proxy)
 ShortUrl="http://localhost:5020"      # The short domain 
 FullUrl="http://127.0.0.1:5020"       # The full domain 
+DefaultIpp=20                         # Default number of images per page
+MaxMultipartMemory=256_00             # Maximum image upload form size before dumping to disk
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

@@ -18,13 +18,10 @@ import (
 )
 
 const (
-	Version            = "0.1.0"
-	AdminIdKey         = "adminId"
-	IsAdminKey         = "isAdmin"
-	PostStyleKey       = "postStyle"
-	LongCookie         = 365 * 24 * 60 * 60
-	DefaultIpp         = 20
-	MaxMultipartMemory = 256_000
+	Version      = "0.1.0"
+	AdminIdKey   = "adminId"
+	IsAdminKey   = "isAdmin"
+	PostStyleKey = "postStyle"
 )
 
 func reportDbError(err error, w http.ResponseWriter) {
@@ -221,7 +218,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 					http.SetCookie(w, &http.Cookie{
 						Name:   name,
 						Value:  value,
-						MaxAge: LongCookie,
+						MaxAge: int(time.Duration(kctx.config.CookieExpire).Seconds()),
 					})
 				}
 			}
@@ -233,7 +230,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 
 		r.Post("/uploadimage", func(w http.ResponseWriter, r *http.Request) {
 			// WE want to parse the form so we can set the mem size...
-			r.ParseMultipartForm(MaxMultipartMemory)
+			r.ParseMultipartForm(kctx.config.MaxMultipartMemory)
 			// Set limits on the body
 			r.Body = http.MaxBytesReader(w, r.Body, int64(kctx.config.MaxImageSize))
 			if r.FormValue("url") != "" {
@@ -269,6 +266,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 					if err != nil {
 						return
 					}
+					log.Printf("Read image from base64 string")
 					// Don't need to close outfile, we're going to use it later, THEY can close it...
 				} else if form.animation != "" {
 					http.Error(w, "Animation decoding not yet supported", http.StatusTeapot)

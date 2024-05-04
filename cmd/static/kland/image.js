@@ -79,19 +79,19 @@ function imagePaste12Me21(element, callback)
 //Put image on canvas and return canvas. Useful for getting the image as blob.
 function drawImageOnCanvas(image)
 {
-   var originalWidth = image.style.width;
-   var originalHeight = image.style.height;
-   image.style.width = "unset"; image.style.height = "unset";
+   // var originalWidth = image.style.width;
+   // var originalHeight = image.style.height;
+   // image.style.width = "unset"; image.style.height = "unset";
 
    console.log("Drawing image on canvas (probably for upload). Width: " + 
-      image.width + ", height: " + image.height);
+      image.naturalWidth + ", height: " + image.naturalHeight);
 
    var canvas = document.getElementById("scratchCanvas");
-   canvas.width = image.width;
-   canvas.height = image.height;
+   canvas.width = image.naturalWidth;
+   canvas.height = image.naturalHeight;
    canvas.getContext("2d").drawImage(image, 0, 0);
 
-   image.style.width = originalWidth; image.style.height = originalHeight;
+   //image.style.width = originalWidth; image.style.height = originalHeight;
    return canvas;
 }
 
@@ -101,7 +101,12 @@ function tryUploadImageWithAutomaticCompression(image, bucket)
    var canvas = drawImageOnCanvas(image);
    canvas.toBlob(function(blob)
    {
-      console.log("Converted image to png blob");
+      if (!blob) {
+        alert("Couldn't convert to blob (browser doesn't say why)");
+        return;
+      } else {
+        console.log("Converted image to png blob");
+      }
       if(blob.size > 750000)
       {
          console.log("Blob png is too big. Trying jpeg");
@@ -151,13 +156,18 @@ function clipboardDataUpload(event, bucket)
 
 function uploadBlob(blob, bucket, name)
 {
+  if (!blob) {
+    alert("Trying to upload null blob (perhaps browser failed to convert to blob)");
+    return;
+  } else {
    console.log("Uploading blob: " + blob);
+  }
    var data = new FormData();
    data.append("image", blob, name || "blob.png");
    if(bucket) data.append("bucket", bucket);
 
    var xhr = new XMLHttpRequest();
-   xhr.open("POST", "/uploadimage", true);
+   xhr.open("POST", SERVERROOT + "/uploadimage", true);
    xhr.onload = function() { location.href = xhr.response; };
    xhr.send(data);
 }

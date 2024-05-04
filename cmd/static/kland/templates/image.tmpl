@@ -2,9 +2,9 @@
 
   <head>
     {{template "header.tmpl" .}}
-    <script src="{{.root}}/compatibility.js?version={{.appversion}}"></script>
-    <script src="{{.root}}/image.js?version={{.appversion}}"></script>
-    <link rel="stylesheet" type="text/css" href="image.css?version={{.appversion}}">
+    <script src="{{.root}}/compatibility.js?{{.cachebust}}"></script>
+    <script src="{{.root}}/image.js?{{.cachebust}}"></script>
+    <link rel="stylesheet" type="text/css" href="image.css?{{.cachebust}}">
     <title>Image Uploader {{if .bucket}}({{.bucket}}){{end}}</title>
   </head>
 

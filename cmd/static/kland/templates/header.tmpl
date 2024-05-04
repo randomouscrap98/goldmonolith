@@ -1,8 +1,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,maximum-scale=1">
-<link rel="stylesheet" type="text/css" href="{{.root}}/style.css?version={{.appversion}}">
-<link rel="stylesheet" type="text/css" href="{{.root}}/org.css?version={{.appversion}}">
-<script src="{{.root}}/main.js?version={{.appversion}}"></script>
-<script src="{{.root}}/org.js?version={{.appversion}}"></script>
-<script src="{{.root}}/randomous.js?version={{.appversion}}"></script>
+<script>
+var SERVERROOT = "{{.root}}";
+</script>
+<link rel="stylesheet" type="text/css" href="{{.root}}/style.css?{{.cachebust}}">
+<link rel="stylesheet" type="text/css" href="{{.root}}/org.css?{{.cachebust}}">
+<script src="{{.root}}/main.js?{{.cachebust}}"></script>
+<script src="{{.root}}/org.js?{{.cachebust}}"></script>
+<script src="{{.root}}/randomous.js?{{.cachebust}}"></script>
 <link href="{{.root}}/wanpaku-kun.ico" rel="icon">

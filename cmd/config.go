@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/randomouscrap98/goldmonolith/kland"
+	"github.com/randomouscrap98/goldmonolith/makai"
 	"github.com/randomouscrap98/goldmonolith/utils"
 	"github.com/randomouscrap98/goldmonolith/webstream"
 )
@@ -14,6 +15,7 @@ type Config struct {
 	ShutdownTime utils.Duration    // Time to wait for server to shutdown
 	Webstream    *webstream.Config // Webstream specific config
 	Kland        *kland.Config     // Kland specific config
+	Makai        *makai.Config     // Makai specific config
 	StaticFiles  string            // Where the static files for ALL endpoints go
 }
 
@@ -28,11 +30,15 @@ StaticFiles="static"          # Where ALL static files go
 
 [Kland]
 %s
+
+[Makai]
+%s
 `
 	return fmt.Sprintf(
 		baseConfig,
 		time.Now().Format(time.RFC3339),
 		webstream.GetDefaultConfig_Toml(),
 		kland.GetDefaultConfig_Toml(),
+		makai.GetDefaultConfig_Toml(),
 	)
 }

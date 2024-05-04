@@ -21,6 +21,7 @@ import (
 	//"github.com/go-chi/httprate"
 
 	"github.com/randomouscrap98/goldmonolith/kland"
+	"github.com/randomouscrap98/goldmonolith/makai"
 	"github.com/randomouscrap98/goldmonolith/utils"
 	"github.com/randomouscrap98/goldmonolith/webstream"
 )
@@ -52,7 +53,7 @@ func initConfig() *Config {
 	return &config
 }
 
-func initRouter(config *Config) *chi.Mux {
+func initRouter(_ *Config) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -109,6 +110,7 @@ func main() {
 	// --- Which services to host ----
 	mounts["/stream"] = func() (WebService, error) { return webstream.NewWebstreamContext(config.Webstream) }
 	mounts["/kland"] = func() (WebService, error) { return kland.NewKlandContext(config.Kland) }
+	mounts["/makai"] = func() (WebService, error) { return makai.NewMakaiContext(config.Makai) }
 
 	// --- Host all services ---
 	for k, f := range mounts {

@@ -6,7 +6,7 @@
     <script src="{{.root}}/draw/randomousCanvas.js?{{.cachebust}}" ></script>
     <script src="{{.root}}/draw/simpledraw2.js?{{.cachebust}}" ></script>
    <script>
-      var DRAWROOT = "{{.root}}/draw/"
+      var DRAWROOT = "{{.root}}/draw/";
       var drawer;
       var reloading = false;
       var originalControlsWidth;
@@ -320,10 +320,9 @@
          };
          var data = new FormData();
          var raw = drawer.drawer._canvas.toDataURL("image/png");
-         console.log(raw);
          data.append("raw", raw);
          data.append("bucket", getArtistID());
-         RequestUtilities.XHRSimple("https://kland.smilebasicsource.com/uploadimage", 
+         RequestUtilities.XHRSimple("{{.klandurl}}/uploadimage", 
             callback, data);
       }
       window.addEventListener("load", function()

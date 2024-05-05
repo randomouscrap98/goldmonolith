@@ -15,8 +15,12 @@ const (
 func (kctx *MakaiContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
 
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		data := kctx.GetDefaultData(r)
+		kctx.RunTemplate("index.tmpl", w, data)
+	})
+
 	r.Get("/draw/", func(w http.ResponseWriter, r *http.Request) {
-		// Need to get threads from db, is it really ALL of them? Yeesh...
 		data := kctx.GetDefaultData(r)
 		data["nobg"] = r.URL.Query().Has("nobg")
 		kctx.RunTemplate("draw_index.tmpl", w, data)

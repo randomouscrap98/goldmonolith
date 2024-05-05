@@ -74,7 +74,7 @@ func (kctx *MakaiContext) GetDefaultData(r *http.Request) map[string]any {
 	// }
 	rinfo := utils.GetRuntimeInfo()
 	result := make(map[string]any)
-	result["root"] = kctx.config.RootPath
+	result["root"] = template.URL(kctx.config.RootPath)
 	result["appversion"] = Version
 	//result[AdminIdKey] = thisadminid
 	//result[IsAdminKey] = thisadminid == kctx.config.AdminId
@@ -82,6 +82,7 @@ func (kctx *MakaiContext) GetDefaultData(r *http.Request) map[string]any {
 	result["runtimeInfo"] = rinfo
 	result["requestUri"] = r.URL.RequestURI()
 	result["cachebust"] = kctx.created.Format(time.RFC3339)
+	result["klandurl"] = template.URL(kctx.config.KlandUrl)
 	//"RawHtml": func(c string) template.HTML { return template.HTML(c) },
 	return result
 }

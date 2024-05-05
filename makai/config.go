@@ -18,11 +18,12 @@ const (
 )
 
 type Config struct {
-	RootPath       string // The root path to makai
+	RootPath       string // The root path to makai (the url path)
 	AdminId        string // Admin key
 	DrawingsPath   string // Path to drawings for simple makai drawer
 	TemplatePath   string // path to all makai templates
 	StaticFilePath string // path to all static files
+	KlandUrl       string // URL
 	// MaxImageSize        int            // Maximum image upload size. It's a hard cutoff
 	// DatabasePath        string         // path to database
 	// ImagePath           string         // path to images on local filesystem
@@ -46,11 +47,12 @@ func GetDefaultConfig_Toml() string {
 	}
 	randomHex := hex.EncodeToString(randomUser)
 	return fmt.Sprintf(`# Config auto-generated on %s
-RootPath="/makai"                     # Root path for kland (if at root, leave BLANK)
+RootPath="/makai"                     # Root path for makai (if at root, leave BLANK)
 AdminId="%s"                          # Admin key (randomly generated)
 DrawingsPath="data/makai/drawings"    # Drawings path for simple makai drawer
 TemplatePath="static/makai/templates" # Path to all template files
 StaticFilePath="static/makai"         # Path to static files (currently only valid in monolith)
+KlandUrl="/kland"                     # Full url to the root page of kland
 # MaxImageSize=10_000_000               # Maximum image upload size
 # DatabasePath="data/kland/kland.db"    # Path to database (just data, not images)
 # ImagePath="data/kland/images"         # Path to image folder

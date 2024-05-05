@@ -3,7 +3,7 @@ package kland
 import (
 	"context"
 	"database/sql"
-	//"fmt"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -30,7 +30,7 @@ type KlandContext struct {
 
 func NewKlandContext(config *Config) (*KlandContext, error) {
 	// MUST have database exist and in good standing...
-	dir, _ := filepath.Split(config.DatabasePath)
+	dir, _ := filepath.Split(config.DatabasePath())
 	err := os.MkdirAll(dir, 0750)
 	if err != nil {
 		return nil, err
@@ -49,11 +49,11 @@ func NewKlandContext(config *Config) (*KlandContext, error) {
 		return nil, err
 	}
 	// MUST have image folder existing...
-	err = os.MkdirAll(config.ImagePath, 0750)
+	err = os.MkdirAll(config.ImagePath(), 0750)
 	if err != nil {
 		return nil, err
 	}
-	err = os.MkdirAll(config.TextPath, 0750)
+	err = os.MkdirAll(config.TextPath(), 0750)
 	if err != nil {
 		return nil, err
 	}
@@ -255,15 +255,31 @@ func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.Fil
 	return tempfile, nil
 }
 
+// This function reads the entirety of the data in 'file' stream and puts it in the
+// final destination, giving it a random name with the extension appended. The full
+// filename is returned (without the path)
 func (kctx *KlandContext) RegisterUpload(file io.ReadSeeker, extension string) (string, error) {
+	// Before doing anything, check the size of the destination. If it's too big, return an error
+	if kctx.config.MaxTotalDataSize > 0 || kctx.config.MaxTotalFileCount > 0 {
+		size, count, err := utils.GetTotalDirectorySize(kctx.config.DataPath)
+		if err != nil {
+			return "", err
+		}
+		if kctx.config.MaxTotalDataSize > 0 && size >= kctx.config.MaxTotalDataSize {
+			return "", fmt.Errorf("Out of data storage. Max: %d", kctx.config.MaxTotalDataSize)
+		}
+		if kctx.config.MaxTotalFileCount > 0 && count >= kctx.config.MaxTotalFileCount {
+			return "", fmt.Errorf("Out of data storage (filecount). Max: %d", kctx.config.MaxTotalFileCount)
+		}
+	}
 	_, err := file.Seek(0, io.SeekStart)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	kctx.pinsmu.Lock()
 	defer kctx.pinsmu.Unlock()
-	filename, err := GenerateRandomUniqueFilename(kctx.config.ImagePath, extension)
-	dest := filepath.Join(kctx.config.ImagePath, filename)
+	filename, err := GenerateRandomUniqueFilename(kctx.config.ImagePath(), extension)
+	dest := filepath.Join(kctx.config.ImagePath(), filename)
 	newfile, err := os.Create(dest)
 	if err != nil {
 		return "", err

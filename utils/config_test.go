@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 )
@@ -115,5 +116,21 @@ func TestConfigStackNoext(t *testing.T) {
 	}
 	if !slices.Equal(read, expected) {
 		t.Fatalf("Unexpected read result: %s vs %s", read, expected)
+	}
+}
+
+func TestConfigStackError(t *testing.T) {
+	filepath := getConfigLoadPath("config_some.txt")
+	called := 0
+	check := func(name string, fdata []byte) error {
+		called += 1
+		return fmt.Errorf("Bad something")
+	}
+	_, err := ReadConfigStack(filepath, check, 10)
+	if called != 1 {
+		t.Fatalf("Check function called more than once: %d", called)
+	}
+	if err == nil {
+		t.Fatalf("Expected error, got nil")
 	}
 }

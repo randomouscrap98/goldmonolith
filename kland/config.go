@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"path/filepath"
 	"time"
 
 	"github.com/randomouscrap98/goldmonolith/utils"
@@ -21,9 +22,7 @@ type Config struct {
 	RootPath            string         // The root path to kland
 	AdminId             string         // Admin key
 	MaxImageSize        int            // Maximum image upload size. It's a hard cutoff
-	DatabasePath        string         // path to database
-	ImagePath           string         // path to images on local filesystem
-	TextPath            string         // path to text data (animations?) on local filesystem
+	DataPath            string         // Base path to all data (everything else relative to this)
 	TempPath            string         // Place to put all temporary files
 	StaticFilePath      string         // path to all static files
 	TemplatePath        string         // path to all kland templates
@@ -37,6 +36,8 @@ type Config struct {
 	FullUrl             string         // The url for the "real" endpoint (where kland is hosted)
 	DefaultIPP          int            // Default number of images per page
 	MaxMultipartMemory  int64          // Maximum image upload form size before dumping to disk
+	MaxTotalDataSize    int64          // Limit the total amount of data that the system stores
+	MaxTotalFileCount   int64          // Limit the total amount of files the system stores
 }
 
 func GetDefaultConfig_Toml() string {
@@ -50,10 +51,8 @@ func GetDefaultConfig_Toml() string {
 RootPath="/kland"                     # Root path for kland (if at root, leave BLANK)
 AdminId="%s"                          # Admin key (randomly generated)
 MaxImageSize=10_000_000               # Maximum image upload size
-DatabasePath="data/kland/kland.db"    # Path to database (just data, not images)
-ImagePath="data/kland/images"         # Path to image folder
-TextPath="data/kland/text"            # Path to text folder (animations?)
-TempPath="data/tmp"                   # Path to put all temporary files
+DataPath="data/kland"                 # Base path to data (all other data relative to this)
+TempPath="/tmp/kland"                 # Path to put all temporary files
 StaticFilePath="static/kland"         # Path to static files (currently only valid in monolith)
 TemplatePath="static/kland/templates" # Path to all template files
 UploadPerInterval=20                  # Amount of uploads (any) per interval
@@ -66,9 +65,23 @@ ShortUrl="http://localhost:5020"      # The short domain
 FullUrl="http://127.0.0.1:5020"       # The full domain 
 DefaultIpp=20                         # Default number of images per page
 MaxMultipartMemory=256_00             # Maximum image upload form size before dumping to disk
+MaxTotalDataSize=6_000_000_000        # Max total size of kland data on filesystem.
+MaxTotalFileCount=50_000              # Max amount of total files kland will support. Set both this and MaxTotalDataSize to 0 to disable (can be slow)
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 
+func (c *Config) DatabasePath() string {
+	return filepath.Join(c.DataPath, "kland.db")
+}
+
+func (c *Config) ImagePath() string {
+	return filepath.Join(c.DataPath, "images")
+}
+
+func (c *Config) TextPath() string {
+	return filepath.Join(c.DataPath, "text")
+}
+
 func (c *Config) OpenDb() (*sql.DB, error) {
-	return sql.Open("sqlite3", fmt.Sprintf("%s?_busy_timeout=%d", c.DatabasePath, BusyTimeout))
+	return sql.Open("sqlite3", fmt.Sprintf("%s?_busy_timeout=%d", c.DatabasePath(), BusyTimeout))
 }

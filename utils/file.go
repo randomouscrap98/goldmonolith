@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 )
 
 // Wrapper arond http.DetectContentType, since it's nontrivial to get the first
@@ -38,4 +39,22 @@ func CheckAnyPathExists(paths []string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// Return the total size of the directory, walking through all folders
+// recursively. Also returns a total file count. IDK how performant this is...
+func GetTotalDirectorySize(path string) (int64, int64, error) {
+	var size int64
+	var count int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+			count += 1
+		}
+		return err
+	})
+	return size, count, err
 }

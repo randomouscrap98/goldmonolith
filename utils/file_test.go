@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,4 +79,18 @@ func TestDetectImagefile(t *testing.T) {
 	if strings.Index(typ, "image/png") != 0 {
 		t.Fatalf("Bad detection; expected image/png, got: %s", typ)
 	}
+}
+
+func TestGetTotalDirectorySize(t *testing.T) {
+	size, count, err := GetTotalDirectorySize("..")
+	if err != nil {
+		t.Fatalf("Error retrieving total directory size: %s", err)
+	}
+	if size < 100_000 {
+		t.Fatalf("Didn't get a large enough size: %d", size)
+	}
+	if count < 100 {
+		t.Fatalf("Didn't get a large enough count: %d", count)
+	}
+	log.Printf("Total size: %d count: %d", size, count)
 }

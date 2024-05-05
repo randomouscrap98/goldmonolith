@@ -7,13 +7,17 @@
 if(!window.LogSystem)
    window.LogSystem = {RootLogger : {log : function(message, level){}}};
 
+// NOTE: this PARTICULAR copy of chatdraw requires you to set 
+// KLANDURL somewhere before you use everything
+
 var LocalChatDraw = (function() {
 
    //The chatdraw canvas's expected width and height
    var chatDrawCanvasWidth = 200;
    var chatDrawCanvasHeight = 100;
 
-   var imageHost = location.protocol + "//kland.smilebasicsource.com";
+   var imageHost = KLANDURL;
+    //location.protocol + "//kland.smilebasicsource.com";
    //var imageHost = "http://localhost:5000";
 
    var drawAreaID = "chatdraw";
@@ -726,7 +730,8 @@ var LocalChatDraw = (function() {
       
       exportAnimation.addEventListener("click", function()
       {
-         UXUtilities.Confirm("Your animation will be captured as-is and turned into a gif. " +
+         UXUtilities.Confirm("Your animation will be captured as-is and turned into a gif " +
+            "by uploading it to our old image host at '" + imageHost + "'. " +
             "Frame timings may be slightly off due to gif timings, particularly lower frame times. " +
             "Are you ready to export your animation?", function(confirmed)
             {

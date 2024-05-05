@@ -3,7 +3,7 @@
 {
    function updateBucketLink()
    {
-      seeBucket.href = "http://kland.smilebasicsource.com/image?bucket=" + bucket.value;
+      seeBucket.href = KLANDURL + "/image?bucket=" + bucket.value;
    }
 
    window.addEventListener("load", function(e)

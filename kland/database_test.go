@@ -24,7 +24,7 @@ func GetTestConfig(t *testing.T) *Config {
 	return &config
 }
 
-func GetTestDb(name string, t *testing.T) *sql.DB {
+func getTestDb(name string, t *testing.T) *sql.DB {
 	db, err := sql.Open("sqlite3", fmt.Sprintf(
 		"file:kland_database_%s:?mode=memory&cache=shared&_busy_timeout=%d", name, BusyTimeout))
 	if err != nil {
@@ -39,7 +39,7 @@ func GetTestDb(name string, t *testing.T) *sql.DB {
 }
 
 func TestOpenDb(t *testing.T) {
-	db := GetTestDb("basicopen", t)
+	db := getTestDb("basicopen", t)
 	if db == nil {
 		t.Fatalf("Database was nil on open")
 	}
@@ -47,7 +47,7 @@ func TestOpenDb(t *testing.T) {
 }
 
 func TestInsertBucketThread(t *testing.T) {
-	db := GetTestDb("insertthread", t)
+	db := getTestDb("insertthread", t)
 	defer db.Close()
 	tid, hash, err := InsertBucketThread(db, "hecking")
 	if err != nil {
@@ -69,7 +69,7 @@ func TestInsertBucketThread(t *testing.T) {
 }
 
 func TestUpdateThreadHash(t *testing.T) {
-	db := GetTestDb("updatebuckethash", t)
+	db := getTestDb("updatebuckethash", t)
 	defer db.Close()
 	tid, hash, err := InsertBucketThread(db, "hecking")
 	if err != nil {
@@ -95,7 +95,7 @@ func TestUpdateThreadHash(t *testing.T) {
 
 func TestInsertManyBucketThreads(t *testing.T) {
 	const REPEATS = 10000
-	db := GetTestDb("manybuckets", t)
+	db := getTestDb("manybuckets", t)
 	defer db.Close()
 	hashes := make(map[string]int64)
 	for i := range REPEATS {

@@ -14,7 +14,12 @@ func DetectContentType(reader io.ReadSeeker) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, err = io.ReadFull(reader, dctbuf)
+	length, err := io.ReadFull(reader, dctbuf)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return "", err
+	}
+	dctbuf = dctbuf[:length]
+	_, err = reader.Seek(0, io.SeekStart)
 	if err != nil {
 		return "", err
 	}

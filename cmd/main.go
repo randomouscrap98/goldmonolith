@@ -38,7 +38,7 @@ func must(err error) {
 
 func initConfig() *Config {
 	var config Config
-	results, err := utils.ReadConfigStack(ConfigFile, func(raw []byte) error {
+	results, err := utils.ReadConfigStack(ConfigFile, func(_ string, raw []byte) error {
 		return toml.Unmarshal(raw, &config)
 	}, 10)
 	must(err)

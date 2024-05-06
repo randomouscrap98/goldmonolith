@@ -10,6 +10,7 @@ require (
 	github.com/gorilla/schema v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/pelletier/go-toml/v2 v2.2.1
+	golang.org/x/image v0.16.0
 )
 
 require github.com/cespare/xxhash/v2 v2.1.2 // indirect

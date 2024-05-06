@@ -1,7 +1,6 @@
 package kland
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -255,22 +254,29 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			if err != nil { // Couldn't load the form file, it needs to be one of two other things
 				if form.raw != "" {
 					// This is a base64 thing, pretty simple to parse.
-					firstComma := strings.IndexRune(form.raw, ',')
-					if firstComma < 0 {
-						http.Error(w, "Malformed raw image string (missing comma)", http.StatusBadRequest)
+					realraw, _, err := ParseImageDataUrl(form.raw)
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusBadRequest)
 						return
 					}
-					reader := strings.NewReader(form.raw[firstComma+1:])
-					decoder := base64.NewDecoder(base64.StdEncoding, reader)
-					outfile, err = kctx.WriteTemp(decoder, w)
+					outfile, err = kctx.WriteTemp(realraw, w)
 					if err != nil {
 						return
 					}
 					log.Printf("Read image from base64 string")
 					// Don't need to close outfile, we're going to use it later, THEY can close it...
 				} else if form.animation != "" {
-					http.Error(w, "Animation decoding not yet supported", http.StatusTeapot)
-					return
+					tempfile, err := kctx.MakeTemp(w)
+					if err != nil {
+						return
+					}
+					err = ConvertAnimation(form.animation, tempfile)
+					if err != nil {
+						tempfile.Close()
+						http.Error(w, fmt.Sprintf("Couldn't decode json: %s", err), http.StatusBadRequest)
+						return
+					}
+					outfile = tempfile
 				}
 			}
 			defer CloseDeleteUploadFile(outfile)

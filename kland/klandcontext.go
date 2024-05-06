@@ -262,7 +262,7 @@ func (kctx *KlandContext) GenerateRandomUniqueFilename(extension string) (string
 	return filename, nil
 }
 
-func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.File, error) {
+func (kctx *KlandContext) MakeTemp(w http.ResponseWriter) (*os.File, error) {
 	err := os.MkdirAll(kctx.config.TempPath, 0700)
 	if err != nil {
 		log.Printf("Couldn't create temp folder: %s", err)
@@ -273,6 +273,14 @@ func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.Fil
 	if err != nil {
 		log.Printf("Couldn't open temp file: %s", err)
 		http.Error(w, "Can't write temp file", http.StatusInternalServerError)
+		return nil, err
+	}
+	return tempfile, nil
+}
+
+func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.File, error) {
+	tempfile, err := kctx.MakeTemp(w)
+	if err != nil {
 		return nil, err
 	}
 	_, err = io.Copy(tempfile, r)

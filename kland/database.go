@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	DatabaseVersion     = "1"
-	TimeFormat          = "2006-01-02 15:04:05" // Don't bother with the milliseconds
-	HashBaseCount       = 5
-	HashIncreaseFactor  = 100 // How many failures would require a base increase
-	OrphanedPrepend     = "Internal_OrphanedImages"
-	OrphanedPostContent = "orphanedPost"
+	DatabaseVersion      = "1"
+	TimeFormat           = "2006-01-02 15:04:05" // Don't bother with the milliseconds
+	DbHashBaseCount      = 5
+	DbHashIncreaseFactor = 100 // How many failures would require a base increase
+	OrphanedPrepend      = "Internal_OrphanedImages"
+	OrphanedPostContent  = "orphanedPost"
 )
 
 // NOTE: Ban isn't used
@@ -103,7 +103,7 @@ func GenerateThreadHash(db utils.DbLike) (string, error) {
 	retries := 0
 	var count int
 	for {
-		hash := utils.RandomAsciiName(HashBaseCount + retries/HashIncreaseFactor)
+		hash := utils.RandomAsciiName(DbHashBaseCount + retries/DbHashIncreaseFactor)
 		// Go look for a thread with this hash. If one doesn't exist, we're good.
 		err := db.QueryRow("SELECT COUNT(*) FROM threads WHERE hash = ?", hash).Scan(&count)
 		if err != nil {

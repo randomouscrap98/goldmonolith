@@ -3,6 +3,7 @@ package kland
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -224,6 +226,42 @@ func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (Th
 	return threads[0], nil
 }
 
+func (kctx *KlandContext) GenerateRandomUniqueFilename(extension string) (string, error) {
+	if len(extension) > 0 && extension[0] == '.' {
+		extension = extension[1:]
+	}
+	if len(extension) == 0 {
+		return "", fmt.Errorf("you must provide an extension")
+	}
+	folder := kctx.config.ImagePath()
+	// Maybe change this to generate more...
+	lowerExt := strings.ToLower(extension)
+	upperExt := strings.ToUpper(extension)
+	// generate a valid file name (one that is not currently used)
+	retries := 0
+	var name string
+	for {
+		name = utils.RandomAsciiName(kctx.config.HashBaseChars + retries/kctx.config.HashIncreaseRetries)
+		found, err := utils.CheckAnyPathExists([]string{
+			filepath.Join(folder, fmt.Sprintf("%s.%s", name, lowerExt)),
+			filepath.Join(folder, fmt.Sprintf("%s.%s", name, upperExt)),
+		})
+		if err != nil {
+			return "", err
+		}
+		// Nothing found, that's good, it's a usable file
+		if !found {
+			break
+		} else {
+			log.Printf("Collision: %s (retries: %d)", name, retries)
+		}
+		retries += 1
+	}
+	// now we move the file and we're done
+	filename := fmt.Sprintf("%s.%s", name, extension)
+	return filename, nil
+}
+
 func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.File, error) {
 	err := os.MkdirAll(kctx.config.TempPath, 0700)
 	if err != nil {
@@ -285,7 +323,7 @@ func (kctx *KlandContext) RegisterUpload(file io.ReadSeeker, extension string) (
 	}
 	kctx.pinsmu.Lock()
 	defer kctx.pinsmu.Unlock()
-	filename, err := GenerateRandomUniqueFilename(kctx.config.ImagePath(), extension)
+	filename, err := kctx.GenerateRandomUniqueFilename(extension)
 	dest := filepath.Join(kctx.config.ImagePath(), filename)
 	newfile, err := os.Create(dest)
 	if err != nil {

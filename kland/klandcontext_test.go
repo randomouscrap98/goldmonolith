@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	//"log"
+
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/randomouscrap98/goldmonolith/utils"
@@ -136,5 +138,40 @@ func TestFileUploadLimits(t *testing.T) {
 	}
 	if ooserr.Current < 4 {
 		t.Fatalf("Error didn't report correct current amount: %d", ooserr.Current)
+	}
+}
+
+func TestNoCollisions(t *testing.T) {
+	const FILEWRITES = 100
+	allfiles := make([]string, FILEWRITES)
+	context := newTestContext("nocollisions")
+	context.config.HashBaseChars = 2
+	context.config.HashIncreaseRetries = 1 // This will make it immediately grow
+	for i := range FILEWRITES {
+		_, allfiles[i] = registerUploadGenerate(context, 8, t)
+	}
+	distinct := utils.SliceDistinct(allfiles)
+	if len(distinct) != len(allfiles) {
+		t.Fatalf("There were collisions when registering uploads! Check %s", context.config.ImagePath())
+	}
+}
+
+func TestNoGrow(t *testing.T) {
+	const FILEWRITES = 20
+	allfiles := make([]string, FILEWRITES)
+	context := newTestContext("nogrow")
+	context.config.HashBaseChars = 1
+	context.config.HashIncreaseRetries = 1000 // This should make it never grow
+	for i := range FILEWRITES {
+		_, allfiles[i] = registerUploadGenerate(context, 8, t)
+		ext := filepath.Ext(allfiles[i])
+		path := filepath.Dir(allfiles[i])
+		if len(allfiles[i])-len(ext)-len(path)-1 != 1 {
+			t.Fatalf("File generated with too many characters")
+		}
+	}
+	distinct := utils.SliceDistinct(allfiles)
+	if len(distinct) != len(allfiles) {
+		t.Fatalf("There were collisions when registering uploads! Check %s", context.config.ImagePath())
 	}
 }

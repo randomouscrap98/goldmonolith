@@ -60,8 +60,8 @@ func TestInsertBucketThread(t *testing.T) {
 	if hash != thread.hash {
 		t.Fatalf("Returned hash does not equal stored hash! %s vs %s", hash, thread.hash)
 	}
-	if len(thread.hash) != HashBaseCount {
-		t.Fatalf("Hash not the right size! Expected %d, got %d", HashBaseCount, len(thread.hash))
+	if len(thread.hash) != DbHashBaseCount {
+		t.Fatalf("Hash not the right size! Expected %d, got %d", DbHashBaseCount, len(thread.hash))
 	}
 	if strings.Index(thread.subject, "hecking") < 0 {
 		t.Fatalf("Subject malformed: %s", thread.subject)

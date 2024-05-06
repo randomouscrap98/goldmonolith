@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/randomouscrap98/goldmonolith/utils"
-	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 	//"log"
+
+	"github.com/randomouscrap98/goldmonolith/utils"
 )
 
 const (
@@ -19,20 +17,9 @@ const (
 	GoroutineWait   = time.Millisecond
 )
 
-func randomFolder(name string, create bool) string {
-	folder := filepath.Join("ignore", fmt.Sprintf("%s_%s",
-		strings.Replace(time.Now().UTC().Format(time.RFC3339), ":", "", -1),
-		name,
-	))
-	if create {
-		os.MkdirAll(folder, 0750)
-	}
-	return folder
-}
-
 func reasonableConfig(name string) *Config {
 	return &Config{
-		StreamFolder:    randomFolder(name, false),
+		StreamFolder:    utils.RandomTestFolder(name, false),
 		TotalRoomLimit:  10,
 		SingleDataLimit: 500,
 		StreamDataLimit: 1000,

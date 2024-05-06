@@ -3,7 +3,6 @@ package kland
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -266,10 +265,18 @@ func (kctx *KlandContext) RegisterUpload(file io.ReadSeeker, extension string) (
 			return "", err
 		}
 		if kctx.config.MaxTotalDataSize > 0 && size >= kctx.config.MaxTotalDataSize {
-			return "", fmt.Errorf("Out of data storage. Max: %d", kctx.config.MaxTotalDataSize)
+			return "", &utils.OutOfSpaceError{
+				Allowed: kctx.config.MaxTotalDataSize,
+				Current: size,
+				Units:   "bytes",
+			}
 		}
 		if kctx.config.MaxTotalFileCount > 0 && count >= kctx.config.MaxTotalFileCount {
-			return "", fmt.Errorf("Out of data storage (filecount). Max: %d", kctx.config.MaxTotalFileCount)
+			return "", &utils.OutOfSpaceError{
+				Allowed: kctx.config.MaxTotalFileCount,
+				Current: count,
+				Units:   "files",
+			}
 		}
 	}
 	_, err := file.Seek(0, io.SeekStart)

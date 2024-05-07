@@ -39,4 +39,5 @@ func TestConvertAnimation(t *testing.T) {
 	runConvertAnimation("basicanim.txt", "out.gif", t)
 	runConvertAnimation("basicanim_noloop.txt", "out_noloop.gif", t)
 	runConvertAnimation("basicanim_weirdframe.txt", "out_weirdframe.gif", t)
+	runConvertAnimation("basicanim_fast.txt", "out_fast.gif", t)
 }

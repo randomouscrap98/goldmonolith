@@ -1,3 +1,16 @@
-- Rsync kland images to oboy (data/kland/images)
+- Stop kland service on qcs
+- Set update dns script to update kland entry
+- stop goldmonolith service on oboy
+- delete config.toml
+- create config1.toml with overrides for RootPath
+- create nginx entry for kland
+- Check if there's some sync to s3 for kland...
+- Rsync kland images to oboy (into data/kland/images)
 - Move *.txt to data/kland/text
-- Make sure data can write to tmp folders
+- Set up backups for kland db
+
+- check robots.txt
+= check favicon
+- upload an image, check forums, etc
+- check oboy backup to make sure it's still working
+- check qcs backup for errors (removed kland db)

@@ -164,14 +164,14 @@ func (wsys *WebStreamSystem) DumpStreams(force bool) []string {
 	dumped := make([]string, 0)
 	wsys.wsmu.Lock()
 	defer wsys.wsmu.Unlock()
+	if force {
+		log.Printf("FORCE DUMPING %d STREAMS", len(wsys.webstreams))
+	}
 	idleTime := time.Duration(wsys.config.IdleRoomTime)
 	for k, ws := range wsys.webstreams {
 		// Lock for the duration of dump checking, you MUST not randomly unlock!!
 		ws.mu.Lock()
 		if force || time.Now().Sub(ws.lastWrite) > idleTime {
-			if force {
-				log.Printf("FORCE DUMPING STREAM: %s", k)
-			}
 			// Only dump if there's really something to dump
 			if cap(ws.data) != 0 {
 				var err error

@@ -56,10 +56,10 @@ func initConfig() *Config {
 func initRouter(_ *Config) *chi.Mux {
 	r := chi.NewRouter()
 
+	r.Use(proxy.ForwardedHeaders())
 	r.Use(middleware.Logger)
 	r.Use(cors.AllowAll().Handler)
 	//r.Use(middleware.Timeout(time.Duration(config.Timeout)))
-	r.Use(proxy.ForwardedHeaders())
 	//r.Use(httprate.LimitByIP(config.RateLimitCount, time.Duration(config.RateLimitInterval)))
 
 	return r

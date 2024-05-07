@@ -8,9 +8,9 @@
 - Rsync kland images to oboy (into data/kland/images)
 - Move *.txt to data/kland/text
 - Set up backups for kland db
-
 - check robots.txt
 = check favicon
 - upload an image, check forums, etc
 - check oboy backup to make sure it's still working
+
 - check qcs backup for errors (removed kland db)

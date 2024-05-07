@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	Version       = "0.1.0"
+	Version       = "3.0.0"
 	AdminIdKey    = "adminId"
 	IsAdminKey    = "isAdmin"
 	PostStyleKey  = "postStyle"
-	ImageEndpoint = "/img"
+	ImageEndpoint = "/temproute_i"
 )
 
 func reportDbError(err error, w http.ResponseWriter) {

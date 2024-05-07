@@ -125,7 +125,7 @@ func main() {
 		r.Mount(k, handler)
 		wg.Add(1)
 		service.RunBackground(ctx, &wg)
-		log.Printf("Mounted service at %s", k)
+		log.Printf("Mounted '%s' at %s", service.GetIdentifier(), k)
 	}
 
 	// --- Static files -----

@@ -59,6 +59,10 @@ func (wc *MakaiContext) RunBackground(cancel context.Context, wg *sync.WaitGroup
 	wg.Done()
 }
 
+func (wc *MakaiContext) GetIdentifier() string {
+	return "Makai - " + Version
+}
+
 // Retrieve the default data for any page load. Add your additional data to this
 // map before rendering
 func (kctx *MakaiContext) GetDefaultData(r *http.Request) map[string]any {

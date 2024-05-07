@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	Version = "0.1.1"
+	Version = "2.0.0"
 )
 
 // Query the user sends in to get parts of a stream or whatever
@@ -81,6 +81,10 @@ func NewWebstreamContext(config *Config) (*WebstreamContext, error) {
 		obfuscator: utils.GetDefaultObfuscation(),
 		webstreams: system,
 	}, nil
+}
+
+func (wc *WebstreamContext) GetIdentifier() string {
+	return "Webstream - " + Version
 }
 
 // Taken almost verbatim from the c# program

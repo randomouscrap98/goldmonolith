@@ -83,6 +83,10 @@ func (wc *KlandContext) RunBackground(cancel context.Context, wg *sync.WaitGroup
 	wg.Done()
 }
 
+func (wc *KlandContext) GetIdentifier() string {
+	return "Kland - " + Version
+}
+
 // Retrieve the default data for any page load. Add your additional data to this
 // map before rendering
 func (kctx *KlandContext) GetDefaultData(r *http.Request) map[string]any {

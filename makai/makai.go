@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	Version = "0.1.0"
+	Version = "2.0.0"
 )
 
 func (kctx *MakaiContext) GetHandler() (http.Handler, error) {

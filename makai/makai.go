@@ -41,7 +41,7 @@ func (kctx *MakaiContext) GetHandler() (http.Handler, error) {
 	var err error
 
 	// Static file path
-	err = utils.FileServer(r, "/", kctx.config.StaticFilePath)
+	err = utils.FileServer(r, "/", kctx.config.StaticFilePath, true)
 	if err != nil {
 		return nil, err
 	}

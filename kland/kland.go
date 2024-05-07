@@ -323,15 +323,15 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 
 	// --- Static files -----
 	var err error
-	err = utils.FileServer(r, "/i/", kctx.config.ImagePath())
+	err = utils.FileServer(r, "/i/", kctx.config.ImagePath(), false)
 	if err != nil {
 		return nil, err
 	}
-	err = utils.FileServer(r, "/a", kctx.config.TextPath())
+	err = utils.FileServer(r, "/a", kctx.config.TextPath(), false)
 	if err != nil {
 		return nil, err
 	}
-	err = utils.FileServer(r, "/", kctx.config.StaticFilePath)
+	err = utils.FileServer(r, "/", kctx.config.StaticFilePath, true)
 	if err != nil {
 		return nil, err
 	}

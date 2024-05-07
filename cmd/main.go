@@ -129,7 +129,7 @@ func main() {
 	}
 
 	// --- Static files -----
-	err := utils.FileServer(r, "/static", config.StaticFiles)
+	err := utils.FileServer(r, "/static", config.StaticFiles, true)
 	if err != nil {
 		panic(err)
 	}

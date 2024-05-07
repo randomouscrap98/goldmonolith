@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	Version      = "0.1.0"
-	AdminIdKey   = "adminId"
-	IsAdminKey   = "isAdmin"
-	PostStyleKey = "postStyle"
+	Version       = "0.1.0"
+	AdminIdKey    = "adminId"
+	IsAdminKey    = "isAdmin"
+	PostStyleKey  = "postStyle"
+	ImageEndpoint = "/img"
 )
 
 func reportDbError(err error, w http.ResponseWriter) {
@@ -306,9 +307,9 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 
 			imageUrl := ""
 			if form.short {
-				imageUrl = fmt.Sprintf("%s/finalname", kctx.config.ShortUrl)
+				imageUrl = fmt.Sprintf("%s/%s", kctx.config.ShortUrl, finalname)
 			} else {
-				imageUrl = fmt.Sprintf("%s%s/i/%s", kctx.config.FullUrl, kctx.config.RootPath, finalname)
+				imageUrl = fmt.Sprintf("%s%s%s/%s", kctx.config.FullUrl, kctx.config.RootPath, ImageEndpoint, finalname)
 			}
 
 			log.Printf("Image url: %s", imageUrl)
@@ -323,7 +324,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 
 	// --- Static files -----
 	var err error
-	err = utils.FileServer(r, "/img/", kctx.config.ImagePath(), false)
+	err = utils.FileServer(r, ImageEndpoint+"/", kctx.config.ImagePath(), false)
 	if err != nil {
 		return nil, err
 	}

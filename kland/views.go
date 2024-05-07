@@ -54,7 +54,7 @@ func ConvertPost(post Post, config *Config) PostView {
 	}
 
 	link := fmt.Sprintf("%s/thread/%d#p%d", config.RootPath, post.tid, post.pid)
-	imageLink := fmt.Sprintf("%s/i/%s", config.RootPath, image)
+	imageLink := fmt.Sprintf("%s%s/%s", config.RootPath, ImageEndpoint, image)
 
 	return PostView{
 		Tid:          post.tid,

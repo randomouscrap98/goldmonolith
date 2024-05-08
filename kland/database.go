@@ -1,6 +1,7 @@
 package kland
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -24,27 +25,27 @@ type Ban struct {
 }
 
 type Post struct {
-	pid       int64  //key?
-	created   string // time.Time in TimeFormat format
-	content   string
-	options   string
-	ipaddress string
-	username  string // nullable in db
-	tripraw   string // nullable in db
-	image     string // nullable in db
-	tid       int64  // Parent thread
+	Pid       int64  //key?
+	Created   string // time.Time in TimeFormat format
+	Content   string
+	Options   string
+	Ipaddress string
+	Username  string // nullable in db
+	Tripraw   string // nullable in db
+	Image     string // nullable in db
+	Tid       int64  // Parent thread
 }
 
 type Thread struct {
-	tid     int64  //key?
-	created string // time.Time in TimeFormat format
-	subject string
-	deleted bool
-	hash    string // nullable in db
+	Tid     int64  //key?
+	Created string // time.Time in TimeFormat format
+	Subject string
+	Deleted bool
+	Hash    string // nullable in db
 
 	// These are fields we query specially, but are still part of the thread query
-	postCount  int
-	lastPostOn string //time.Time
+	PostCount  int
+	LastPostOn string //time.Time
 }
 
 func CreateTables(db utils.DbLike) error {
@@ -72,9 +73,15 @@ func CreateTables(db utils.DbLike) error {
       tripraw text,
       image text
     );`,
+		`create table if not exists rehashes (
+      rid integer primary key,
+      oldhash text not null,
+      newhash next not null
+    );`,
 		`create index if not exists idx_threads_subject on threads(subject);`,
 		`create index if not exists idx_threads_hash on threads(hash);`,
 		`create index if not exists idx_posts_tid on posts(tid);`,
+		`create index if not exists idx_rehashes_oldhash_newhash on rehashes(oldhash, newhash);`,
 	}
 	return utils.CreateTables_VersionedDb(allSql, db, DatabaseVersion)
 }
@@ -89,7 +96,7 @@ func parseTime(tstr string) time.Time {
 	return t
 }
 
-func bucketSubject(bucket string) string {
+func BucketSubject(bucket string) string {
 	if bucket == "" {
 		return OrphanedPrepend
 	} else {
@@ -195,8 +202,8 @@ GROUP BY t.tid
 
 	for rows.Next() {
 		t := Thread{}
-		err := rows.Scan(&t.tid, &t.created, &t.subject, &t.deleted, &t.hash,
-			&t.postCount, &t.lastPostOn)
+		err := rows.Scan(&t.Tid, &t.Created, &t.Subject, &t.Deleted, &t.Hash,
+			&t.PostCount, &t.LastPostOn)
 		if err != nil {
 			return nil, err
 		}
@@ -242,8 +249,8 @@ FROM posts p
 
 	for rows.Next() {
 		p := Post{}
-		err := rows.Scan(&p.pid, &p.tid, &p.created, &p.content, &p.options,
-			&p.ipaddress, &p.username, &p.tripraw, &p.image)
+		err := rows.Scan(&p.Pid, &p.Tid, &p.Created, &p.Content, &p.Options,
+			&p.Ipaddress, &p.Username, &p.Tripraw, &p.Image)
 		if err != nil {
 			return nil, err
 		}
@@ -300,4 +307,31 @@ func GetPaginatedPosts(db utils.DbLike, tid int64, page int, perpage int) ([]Pos
 		func(t string) string {
 			return fmt.Sprintf("ORDER BY %s.pid DESC LIMIT ? OFFSET ?", t)
 		}, []any{tid, perpage, perpage * page})
+}
+
+func AddRehash(db *sql.DB, p *Post, newimage string, newtag string) error {
+	// Start a transaction for the two updates we're going to do
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	// Now, update the post and add to the rehash. The transaction will
+	// get rid of anything that gets left dangling
+	_, err = tx.Exec("INSERT INTO rehashes(oldhash, newhash) VALUES(?,?)", p.Image, newimage)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("UPDATE posts SET image=?, username=? WHERE pid=?", newimage, newtag, p.Pid)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// Simply return the newhash based on the old hash, if it exists...
+func LookupRehash(db utils.DbLike, hash string) (string, error) {
+	var newhash string
+	err := db.QueryRow("select newhash from rehashes where oldhash=?", hash).Scan(&newhash)
+	return newhash, err
 }

@@ -40,6 +40,7 @@ type Config struct {
 	MaxTotalFileCount   int64          // Limit the total amount of files the system stores
 	HashBaseChars       int            // Initial size of the random name
 	HashIncreaseRetries int            // How many times to repeat before trying an increase in name length
+	RehashTag           string         // Change to a new tag to rehash every image (empty for no rehash)
 }
 
 func GetDefaultConfig_Toml() string {
@@ -69,8 +70,9 @@ DefaultIpp=20                         # Default number of images per page
 MaxMultipartMemory=256_00             # Maximum image upload form size before dumping to disk
 MaxTotalDataSize=6_000_000_000        # Max total size of kland data on filesystem.
 MaxTotalFileCount=50_000              # Max amount of total files kland will support. Set both this and MaxTotalDataSize to 0 to disable (can be slow)
-HashBaseChars=5                       # Initial size of the random name
+HashBaseChars=6                       # Initial size of the random name
 HashIncreaseRetries=100               # How many times to repeat before trying an increase in name length
+RehashTag="rehash20240507"            # Change to a new tag to rehash every image (empty for no rehash)
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

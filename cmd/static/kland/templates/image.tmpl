@@ -17,6 +17,18 @@
       <p>Readonly Bucket link: <a href="{{.publicLink}}">{{.publicLink}}</a></p>
       {{end}}{{end}}
     </div>
+    {{if .bucket}}
+    <div class="header specialblock warning">
+      <p>Update 2024-05: I (the maintainer of kland) made a mistake and accidentally
+         exposed the master list of all images for a short time. In that time, a botnet 
+         picked up the list. To protect your files, I rehashed them
+         all with a larger hash, but that breaks all old links.</p>
+      <form id="hashlookup" action="{{.root}}/hashlookup" target="_blank">
+        <input placeholder="Old hash" name="hash">
+        <input type="submit" value="Lookup">
+      </form>
+    </div>
+    {{end}}
 
     {{if not .readonly}}
     <form id="uploadform" action="{{.root}}/uploadimage" method="post" enctype="multipart/form-data"

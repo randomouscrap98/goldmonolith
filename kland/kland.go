@@ -6,6 +6,7 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -17,11 +18,11 @@ import (
 )
 
 const (
-	Version       = "3.0.0"
+	Version       = "3.1.0"
 	AdminIdKey    = "adminId"
 	IsAdminKey    = "isAdmin"
 	PostStyleKey  = "postStyle"
-	ImageEndpoint = "/temproute_i"
+	ImageEndpoint = "/i"
 )
 
 func reportDbError(err error, w http.ResponseWriter) {
@@ -165,14 +166,14 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				}
 				data["readonly"] = true
 			} else {
-				if !getByField("subject", bucketSubject(iquery.Bucket)) {
+				if !getByField("subject", BucketSubject(iquery.Bucket)) {
 					return
 				}
 			}
 
 			if thread != nil {
-				data["publicLink"] = fmt.Sprintf("%s/image?view=%s", kctx.config.RootPath, thread.hash)
-				posts, err := GetPaginatedPosts(db, int64(thread.tid), iquery.Page-1, iquery.IPP)
+				data["publicLink"] = fmt.Sprintf("%s/image?view=%s", kctx.config.RootPath, thread.Hash)
+				posts, err := GetPaginatedPosts(db, int64(thread.Tid), iquery.Page-1, iquery.IPP)
 				postViews := kctx.ConvertPostResult(posts, err, w)
 				if postViews == nil {
 					return
@@ -226,6 +227,27 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			handleSetting(PostStyleKey, poststyle)
 			log.Printf("Redirect: %s", redirect)
 			http.Redirect(w, r, redirect, http.StatusSeeOther)
+		})
+
+		r.Get("/hashlookup", func(w http.ResponseWriter, r *http.Request) {
+			hash := path.Base(r.FormValue("hash"))
+			if hash == "" {
+				http.Error(w, "You must provide the hash", http.StatusBadRequest)
+				return
+			}
+			db, err := kctx.config.OpenDb()
+			if err != nil {
+				reportDbError(err, w)
+				return
+			}
+			defer db.Close()
+			newhash, err := LookupRehash(db, hash)
+			if err != nil {
+				log.Printf("Error looking up rehash: %s", err)
+				http.Error(w, "Can't find hash", http.StatusNotFound)
+				return
+			}
+			w.Write([]byte(kctx.FullImageLink(newhash, false)))
 		})
 
 		r.Post("/uploadimage", func(w http.ResponseWriter, r *http.Request) {
@@ -298,20 +320,14 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				http.Error(w, "Couldn't write file", http.StatusInternalServerError)
 				return
 			}
-			_, err = InsertImagePost(db, form.ipaddress, finalname, bucketThread.tid)
+			_, err = InsertImagePost(db, form.ipaddress, finalname, bucketThread.Tid)
 			if err != nil {
 				log.Printf("CAN'T INSERT POST: %s", err)
 				http.Error(w, "Couldn't write post", http.StatusInternalServerError)
 				return
 			}
 
-			imageUrl := ""
-			if form.short {
-				imageUrl = fmt.Sprintf("%s/%s", kctx.config.ShortUrl, finalname)
-			} else {
-				imageUrl = fmt.Sprintf("%s%s%s/%s", kctx.config.FullUrl, kctx.config.RootPath, ImageEndpoint, finalname)
-			}
-
+			imageUrl := kctx.FullImageLink(finalname, form.short)
 			log.Printf("Image url: %s", imageUrl)
 
 			if form.redirect {

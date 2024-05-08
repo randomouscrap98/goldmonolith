@@ -37,48 +37,48 @@ type ThreadView struct {
 // Convert db post to view
 func ConvertPost(post Post, config *Config) PostView {
 
-	trip := post.tripraw
+	trip := post.Tripraw
 	if trip != "" {
 		hashed := sha512.Sum512([]byte(trip))
 		trip = base64.StdEncoding.EncodeToString(hashed[:])[:10]
 	}
 
-	realUsername := post.username
+	realUsername := post.Username
 	if realUsername == "" {
 		realUsername = AnonymousUser
 	}
 
-	image := post.image
+	image := post.Image
 	if image == "" {
 		image = "UNDEFINED"
 	}
 
-	link := fmt.Sprintf("%s/thread/%d#p%d", config.RootPath, post.tid, post.pid)
+	link := fmt.Sprintf("%s/thread/%d#p%d", config.RootPath, post.Tid, post.Pid)
 	imageLink := fmt.Sprintf("%s%s/%s", config.RootPath, ImageEndpoint, image)
 
 	return PostView{
-		Tid:          post.tid,
-		Pid:          post.pid,
-		Content:      post.content,
-		CreatedOn:    parseTime(post.created),
-		IPAddress:    post.ipaddress,
+		Tid:          post.Tid,
+		Pid:          post.Pid,
+		Content:      post.Content,
+		CreatedOn:    parseTime(post.Created),
+		IPAddress:    post.Ipaddress,
 		Trip:         trip,
 		RealUsername: realUsername,
 		Link:         link,
 		ImageLink:    imageLink,
 		IsBanned:     false, // TODO: GET BANS
-		HasImage:     post.image != "",
+		HasImage:     post.Image != "",
 	}
 }
 
 // Convert db thread to ThreadView. ALL fields are set
 func ConvertThread(thread Thread, config *Config) ThreadView {
 	return ThreadView{
-		Tid:        thread.tid,
-		Subject:    thread.subject,
-		CreatedOn:  parseTime(thread.created),
-		PostCount:  thread.postCount,             //x.Posts.Count(),
-		LastPostOn: parseTime(thread.lastPostOn), //LastPostOn : x.Posts.Max(x => (DateTime?)x.created) ?? new DateTime(0),
-		Link:       fmt.Sprintf("%s/thread/%d", config.RootPath, thread.tid),
+		Tid:        thread.Tid,
+		Subject:    thread.Subject,
+		CreatedOn:  parseTime(thread.Created),
+		PostCount:  thread.PostCount,             //x.Posts.Count(),
+		LastPostOn: parseTime(thread.LastPostOn), //LastPostOn : x.Posts.Max(x => (DateTime?)x.created) ?? new DateTime(0),
+		Link:       fmt.Sprintf("%s/thread/%d", config.RootPath, thread.Tid),
 	}
 }

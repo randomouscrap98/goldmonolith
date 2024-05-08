@@ -68,23 +68,100 @@ func NewKlandContext(config *Config) (*KlandContext, error) {
 		return nil, err
 	}
 
-	// Now we're good to go
-	return &KlandContext{
+	// Now we're good to go... well almost.
+	result := KlandContext{
 		config:    config,
 		templates: templates,
 		decoder:   schema.NewDecoder(),
 		created:   time.Now(),
-	}, nil
+	}
+
+	// We made a mistake, so we have to rehash...
+	if result.config.RehashTag != "" {
+		log.Printf("Rehashing kland posts...")
+		err := result.RehashPosts()
+		if err != nil {
+			return nil, err
+		}
+		log.Printf("Finished rehashing kland?")
+	}
+
+	return &result, nil
 }
 
 func (wc *KlandContext) RunBackground(cancel context.Context, wg *sync.WaitGroup) {
-	// A stub, do nothing. But you HAVE to exit the wait group!!
 	log.Printf("No background tasks for kland")
 	wg.Done()
 }
 
+// Go rehash all the posts which haven't been rehashed already
+func (wc *KlandContext) RehashPosts() error {
+	db, err := wc.config.OpenDb()
+	if err != nil {
+		return err
+	}
+	// Lookup all the threads
+	threads, err := QueryThreads(db, nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	for _, t := range threads {
+		if t.Subject == BucketSubject("") || !strings.HasPrefix(t.Subject, OrphanedPrepend) {
+			continue
+		}
+		posts, err := GetPostsInThread(db, t.Tid)
+		if err != nil {
+			return err
+		}
+		count := 0
+		for _, p := range posts {
+			// Don't work on stuff that's already rehashed
+			if p.Username == wc.config.RehashTag || p.Image == "" {
+				continue
+			}
+			// First, copy to the the new file. This is relatively safe if it goes wrong,
+			// you just waste space.
+			oldfp := filepath.Join(wc.config.ImagePath(), p.Image)
+			oldfile, err := os.Open(oldfp)
+			if err != nil {
+				if os.IsNotExist(err) {
+					log.Printf("Skipping rehash for %s, it doesn't exist", p.Image)
+					continue // This is ok
+				}
+				return err
+			}
+			newimage, err := wc.RegisterUpload(oldfile, filepath.Ext(p.Image))
+			oldfile.Close()
+			// Do the database work. The function should do a transaction
+			err = AddRehash(db, &p, newimage, wc.config.RehashTag)
+			if err != nil {
+				return err
+			}
+			// Finally, remove the old file
+			err = os.Remove(oldfp)
+			if err != nil {
+				return err
+			}
+			log.Printf("Updated post %d (%s->%s)", p.Pid, p.Image, newimage)
+			count += 1
+		}
+		if count > 0 {
+			log.Printf("Rehashed %d posts in %s", count, t.Subject)
+		}
+	}
+	return nil
+}
+
 func (wc *KlandContext) GetIdentifier() string {
 	return "Kland - " + Version
+}
+
+func (kctx *KlandContext) FullImageLink(fullname string, short bool) string {
+	if short {
+		return fmt.Sprintf("%s/%s", kctx.config.ShortUrl, fullname)
+	} else {
+		return fmt.Sprintf("%s%s%s/%s", kctx.config.FullUrl, kctx.config.RootPath, ImageEndpoint, fullname)
+	}
 }
 
 // Retrieve the default data for any page load. Add your additional data to this
@@ -193,7 +270,7 @@ func (kctx *KlandContext) ParseImageUploadQuery(r *http.Request) UploadImageQuer
 func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (Thread, error) {
 	// NOTE: tried to do naked returns, it was awful, just did it another way
 	var thread Thread
-	subject := bucketSubject(bucket)
+	subject := BucketSubject(bucket)
 	threads, err := GetThreadsByField(db, "subject", subject)
 	if err != nil {
 		return thread, err
@@ -204,23 +281,23 @@ func (kctx *KlandContext) GetOrCreateBucketThread(db *sql.DB, bucket string) (Th
 	if len(threads) > 0 {
 		// if the thread exists, just check for hash update.
 		thread = threads[0]
-		if thread.hash != "" {
+		if thread.Hash != "" {
 			return thread, nil // THE most normal return. Nearly all will go through here
 		}
-		log.Printf("Thread %s(%d) doesn't have a hash; generating", thread.subject, thread.tid)
-		_, err = UpdateThreadHash(db, thread.tid)
+		log.Printf("Thread %s(%d) doesn't have a hash; generating", thread.Subject, thread.Tid)
+		_, err = UpdateThreadHash(db, thread.Tid)
 		if err != nil {
 			return thread, err // Bad db
 		}
 	} else {
 		// The thread needs to be created
-		thread.tid, thread.hash, err = InsertBucketThread(db, subject)
+		thread.Tid, thread.Hash, err = InsertBucketThread(db, subject)
 		if err != nil {
 			return thread, err // Bad db
 		}
 	}
 	// Now we must lookup the thread updated thread... not very fun
-	threads, err = GetThreadsById(db, []int64{thread.tid})
+	threads, err = GetThreadsById(db, []int64{thread.Tid})
 	if err != nil {
 		return thread, err
 	}

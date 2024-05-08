@@ -57,14 +57,14 @@ func TestInsertBucketThread(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error retrieving bucket thread: %s", err)
 	}
-	if hash != thread.hash {
-		t.Fatalf("Returned hash does not equal stored hash! %s vs %s", hash, thread.hash)
+	if hash != thread.Hash {
+		t.Fatalf("Returned hash does not equal stored hash! %s vs %s", hash, thread.Hash)
 	}
-	if len(thread.hash) != DbHashBaseCount {
-		t.Fatalf("Hash not the right size! Expected %d, got %d", DbHashBaseCount, len(thread.hash))
+	if len(thread.Hash) != DbHashBaseCount {
+		t.Fatalf("Hash not the right size! Expected %d, got %d", DbHashBaseCount, len(thread.Hash))
 	}
-	if strings.Index(thread.subject, "hecking") < 0 {
-		t.Fatalf("Subject malformed: %s", thread.subject)
+	if strings.Index(thread.Subject, "hecking") < 0 {
+		t.Fatalf("Subject malformed: %s", thread.Subject)
 	}
 }
 
@@ -88,8 +88,8 @@ func TestUpdateThreadHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error retrieving updated bucket thread: %s", err)
 	}
-	if thread.hash != hash2 {
-		t.Fatalf("Updated bucket record hash didn't match: %s vs %s", thread.hash, hash2)
+	if thread.Hash != hash2 {
+		t.Fatalf("Updated bucket record hash didn't match: %s vs %s", thread.Hash, hash2)
 	}
 }
 

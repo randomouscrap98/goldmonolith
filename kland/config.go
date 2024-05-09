@@ -72,7 +72,9 @@ MaxTotalDataSize=6_000_000_000        # Max total size of kland data on filesyst
 MaxTotalFileCount=50_000              # Max amount of total files kland will support. Set both this and MaxTotalDataSize to 0 to disable (can be slow)
 HashBaseChars=6                       # Initial size of the random name
 HashIncreaseRetries=100               # How many times to repeat before trying an increase in name length
-RehashTag="rehash20240507"            # Change to a new tag to rehash every image (empty for no rehash)
+RehashTag=""                          # Change to a new tag to rehash every image (empty for no rehash)
+# NOTE FOR ABOVE: the RehashTag should ONLY BE SET ONCE to perform the rehash on startup. After
+# that, you will want to TURN OFF the rehash tag!
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

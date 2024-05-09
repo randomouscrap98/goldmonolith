@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	//"strconv"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ type MakaiContext struct {
 	config    *Config
 	decoder   *schema.Decoder
 	templates *template.Template
+	drawRegex *regexp.Regexp
 	//tinsmu    sync.Mutex
 	//pinsmu    sync.Mutex
 	created time.Time
@@ -31,6 +33,10 @@ type MakaiContext struct {
 func NewMakaiContext(config *Config) (*MakaiContext, error) {
 	// MUST have drawings path exist
 	err := os.MkdirAll(config.DrawingsPath, 0750)
+	if err != nil {
+		return nil, err
+	}
+	drawRegex, err := regexp.Compile(config.DrawSafetyRegex)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +55,7 @@ func NewMakaiContext(config *Config) (*MakaiContext, error) {
 		config:    config,
 		templates: templates,
 		decoder:   schema.NewDecoder(),
+		drawRegex: drawRegex,
 		created:   time.Now(),
 	}, nil
 }

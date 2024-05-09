@@ -286,6 +286,9 @@ func (mctx *MakaiContext) DrawManager(data *ManagerData) *ManagerResult {
 		}
 		drawingId, err := mctx.UpdateDrawingData(data.Name, int64(len(data.Drawing)), artist.RootFolder, artist)
 		err = mctx.SaveDrawing(data.Drawing, drawingId, artist)
+		if err != nil {
+			return addErr(err)
+		}
 		log.Printf("Saved drawing %s(%s) for artist %s", drawingId, data.Name, artist.ArtistID)
 		result.Result = drawingId
 	} else {

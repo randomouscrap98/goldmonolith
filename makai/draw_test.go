@@ -251,3 +251,41 @@ func TestAddDrawing(t *testing.T) {
 		t.Fatalf("Expected writecount to be 1, got %d", ddata3.WriteCount)
 	}
 }
+
+func TestOutOfSpace(t *testing.T) {
+	ctx := newTestContext("outofspace")
+
+	// First save should work
+	_ = mustSave("nospace", "hecking whatever dude", "test", ctx, t)
+
+	// Now greatly limit the file count
+	ctx.config.MaxDrawingFiles = 2
+
+	// Remaining saves will not work
+	mdata := ManagerData{
+		Action:   "save",
+		ArtistID: "nospace",
+		Drawing:  "hecking whatever dude",
+		Name:     "test2",
+	}
+	result := ctx.DrawManager(&mdata)
+	if len(result.Errors) < 1 {
+		t.Fatalf("Expected at least 1 error due to file count limit")
+	}
+	if strings.Index(result.Errors[0], "space") < 0 || strings.Index(result.Errors[0], "2") < 0 {
+		t.Fatalf("Didn't find expected strings in out of space output: %v", result.Errors)
+	}
+
+	// Now greatly limit the file size
+	ctx.config.MaxDrawingFiles = 20
+	ctx.config.MaxDrawingData = 100
+
+	// Remaining saves will not work
+	result = ctx.DrawManager(&mdata)
+	if len(result.Errors) < 1 {
+		t.Fatalf("Expected at least 1 error due to file size limit")
+	}
+	if strings.Index(result.Errors[0], "space") < 0 || strings.Index(result.Errors[0], "100") < 0 {
+		t.Fatalf("Didn't find expected strings in out of space output: %v", result.Errors)
+	}
+}

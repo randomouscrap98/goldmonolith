@@ -44,7 +44,7 @@ DrawingsPath="data/makai/drawings"    # Drawings path for simple makai drawer
 TemplatePath="static/makai/templates" # Path to all template files
 StaticFilePath="static/makai"         # Path to static files (currently only valid in monolith)
 KlandUrl="/kland"                     # Full url to the root page of kland
-DrawSafetyRegex="^[a-zA-Z0-9_\-]+$"   # General regex for checking user-input strings
+DrawSafetyRegex="^[a-zA-Z0-9_-]+$"    # General regex for checking user-input strings
 MaxDrawingData=500_000_000            # Maximum amount of data drawings are allowed to take up total
 MaxDrawingFiles=50_000                # Maximum amount of total files in the drawing system
 `, time.Now().Format(time.RFC3339), randomHex)

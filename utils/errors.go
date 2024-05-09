@@ -30,3 +30,19 @@ func (e *OutOfSpaceError) Error() string {
 		return fmt.Sprintf("Out of space: %d / %d %s", e.Current, e.Allowed, e.Units)
 	}
 }
+
+type InvalidName struct {
+	Item  string
+	Regex string
+}
+
+func (e *InvalidName) Error() string {
+	msg := "Invalid characters"
+	if e.Item != "" {
+		msg += " in " + e.Item
+	}
+	if e.Regex != "" {
+		msg += ". Regex: " + e.Regex
+	}
+	return msg
+}

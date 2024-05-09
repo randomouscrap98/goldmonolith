@@ -42,14 +42,14 @@ type ManagerData struct {
 	ArtistID  string `schema:"artistID"`
 	DrawingID string `schema:"drawingID"`
 	Drawing   string `schema:"drawing"`
-	FolderID  string `schema:"folderID"`
-	Name      string `schema:"name"`
+	//FolderID  string `schema:"folderID"` // This isn't actually used here
+	Name string `schema:"name"`
 }
 
 type ManagerResult struct {
-	Errors    []string    `json:"errors"`
-	Result    interface{} `json:"result"`
-	InputHelp []string    `json:"inputhelp"`
+	Errors    []string `json:"errors"`
+	Result    any      `json:"result"`
+	InputHelp []string `json:"inputhelp"`
 }
 
 func NewFolderData(name string) *FolderData {
@@ -100,7 +100,7 @@ func NewArtistData(artistId string) *ArtistData {
 // The path to the data.json for an artist. Returns errors if the string is dumb
 func (mctx *MakaiContext) ArtistDataPath(artistId string) (string, error) {
 	if artistId == "" || !mctx.drawRegex.Match([]byte(artistId)) {
-		return "", fmt.Errorf("Invalid characters in artistId. Regex: %s", mctx.config.DrawSafetyRegex)
+		return "", &utils.InvalidName{Item: "artistId", Regex: mctx.config.DrawSafetyRegex}
 	}
 	return filepath.Join(mctx.config.DrawingsPath, artistId, ArtistJsonFile), nil
 }
@@ -108,10 +108,10 @@ func (mctx *MakaiContext) ArtistDataPath(artistId string) (string, error) {
 // The path to a single drawing for an artist / drawing. Returns errors if either string is dumb
 func (mctx *MakaiContext) DrawingPath(artistId string, drawingId string) (string, error) {
 	if artistId == "" || !mctx.drawRegex.Match([]byte(artistId)) {
-		return "", fmt.Errorf("Invalid characters in artistId. Regex: %s", mctx.config.DrawSafetyRegex)
+		return "", &utils.InvalidName{Item: "artistId", Regex: mctx.config.DrawSafetyRegex}
 	}
 	if drawingId == "" || !mctx.drawRegex.Match([]byte(drawingId)) {
-		return "", fmt.Errorf("Invalid characters in drawingId. Regex: %s", mctx.config.DrawSafetyRegex)
+		return "", &utils.InvalidName{Item: "drawingId", Regex: mctx.config.DrawSafetyRegex}
 	}
 	return filepath.Join(mctx.config.DrawingsPath, artistId, drawingId), nil
 }
@@ -192,10 +192,18 @@ func (mctx *MakaiContext) SaveDrawing(drawdata string, drawingId string, artist 
 		return err
 	}
 	if size >= mctx.config.MaxDrawingData {
-		return fmt.Errorf("No more space for drawings: %d / %d", size, mctx.config.MaxDrawingData)
+		return &utils.OutOfSpaceError{
+			Allowed: mctx.config.MaxDrawingData,
+			Current: size,
+			Units:   "bytes",
+		}
 	}
 	if count >= mctx.config.MaxDrawingFiles {
-		return fmt.Errorf("Too many drawing files: %d / %d", count, mctx.config.MaxDrawingFiles)
+		return &utils.OutOfSpaceError{
+			Allowed: mctx.config.MaxDrawingFiles,
+			Current: count,
+			Units:   "files",
+		}
 	}
 	// First, make sure the artist folder exists
 	adatapath, err := mctx.ArtistDataPath(artist.ArtistID)
@@ -229,6 +237,7 @@ func (mctx *MakaiContext) DrawManager(data *ManagerData) *ManagerResult {
 	result := ManagerResult{
 		InputHelp: []string{"action", "artistID", "drawing", "drawingID", "folderID", "name"},
 		Errors:    make([]string, 0),
+		Result:    nil,
 	}
 
 	addError := func(err string) *ManagerResult {
@@ -276,6 +285,7 @@ func (mctx *MakaiContext) DrawManager(data *ManagerData) *ManagerResult {
 		drawingId, err := mctx.UpdateDrawingData(data.Name, int64(len(data.Drawing)), artist.RootFolder, artist)
 		err = mctx.SaveDrawing(data.Drawing, drawingId, artist)
 		log.Printf("Saved drawing %s(%s) for artist %s", drawingId, data.Name, artist.ArtistID)
+		result.Result = drawingId
 	} else {
 		return addError("Unknown action!")
 	}

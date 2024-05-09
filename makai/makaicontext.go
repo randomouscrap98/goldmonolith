@@ -2,16 +2,12 @@ package makai
 
 import (
 	"context"
-	//"database/sql"
-	//"fmt"
 	"html/template"
-	//"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
-	//"strconv"
 	"sync"
 	"time"
 
@@ -25,9 +21,7 @@ type MakaiContext struct {
 	decoder   *schema.Decoder
 	templates *template.Template
 	drawRegex *regexp.Regexp
-	//tinsmu    sync.Mutex
-	//pinsmu    sync.Mutex
-	created time.Time
+	created   time.Time
 }
 
 func NewMakaiContext(config *Config) (*MakaiContext, error) {
@@ -73,23 +67,10 @@ func (wc *MakaiContext) GetIdentifier() string {
 // Retrieve the default data for any page load. Add your additional data to this
 // map before rendering
 func (kctx *MakaiContext) GetDefaultData(r *http.Request) map[string]any {
-	// admincookie, err := r.Cookie(AdminIdKey)
-	// thisadminid := ""
-	// if err == nil {
-	// 	thisadminid = admincookie.Value
-	// }
-	// stylecookie, err := r.Cookie(PostStyleKey)
-	// style := ""
-	// if err == nil {
-	// 	style = stylecookie.Value
-	// }
 	rinfo := utils.GetRuntimeInfo()
 	result := make(map[string]any)
 	result["root"] = template.URL(kctx.config.RootPath)
 	result["appversion"] = Version
-	//result[AdminIdKey] = thisadminid
-	//result[IsAdminKey] = thisadminid == kctx.config.AdminId
-	//result[PostStyleKey] = style
 	result["runtimeInfo"] = rinfo
 	result["requestUri"] = r.URL.RequestURI()
 	result["cachebust"] = kctx.created.Format(time.RFC3339)
@@ -106,33 +87,3 @@ func (kctx *MakaiContext) RunTemplate(name string, w http.ResponseWriter, data a
 		http.Error(w, "Template load error (internal server error!)", http.StatusInternalServerError)
 	}
 }
-
-// func (kctx *KlandContext) WriteTemp(r io.Reader, w http.ResponseWriter) (*os.File, error) {
-// 	err := os.MkdirAll(kctx.config.TempPath, 0700)
-// 	if err != nil {
-// 		log.Printf("Couldn't create temp folder: %s", err)
-// 		http.Error(w, "Can't write temp file", http.StatusInternalServerError)
-// 		return nil, err
-// 	}
-// 	tempfile, err := os.CreateTemp(kctx.config.TempPath, "kland_upload_")
-// 	if err != nil {
-// 		log.Printf("Couldn't open temp file: %s", err)
-// 		http.Error(w, "Can't write temp file", http.StatusInternalServerError)
-// 		return nil, err
-// 	}
-// 	_, err = io.Copy(tempfile, r)
-// 	if err != nil {
-// 		tempfile.Close()
-// 		log.Printf("Couldn't write temp file: %s", err)
-// 		http.Error(w, "Can't write temp file", http.StatusInternalServerError)
-// 		return nil, err
-// 	}
-// 	_, err = tempfile.Seek(0, io.SeekStart)
-// 	if err != nil {
-// 		tempfile.Close()
-// 		log.Printf("Couldn't seek temp file: %s", err)
-// 		http.Error(w, "Can't write temp file", http.StatusInternalServerError)
-// 		return nil, err
-// 	}
-// 	return tempfile, nil
-// }

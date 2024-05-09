@@ -28,6 +28,7 @@ type Config struct {
 	DrawSafetyRegex string // General regex for checking user-input strings
 	MaxDrawingData  int64  // Maximum amount of data drawings are allowed to take up
 	MaxDrawingFiles int64  // Maximum amount of total files stored in the drawing system
+	MaxFormMemory   int    // Maximum form size to load entirely into memory for makai
 }
 
 func GetDefaultConfig_Toml() string {
@@ -47,6 +48,7 @@ KlandUrl="/kland"                     # Full url to the root page of kland
 DrawSafetyRegex="^[a-zA-Z0-9_-]+$"    # General regex for checking user-input strings
 MaxDrawingData=500_000_000            # Maximum amount of data drawings are allowed to take up total
 MaxDrawingFiles=50_000                # Maximum amount of total files in the drawing system
+MaxFormMemory=500_000                 # Maximum form size to load entirely into memory for makai
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

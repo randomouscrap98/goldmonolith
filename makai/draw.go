@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -241,6 +242,7 @@ func (mctx *MakaiContext) DrawManager(data *ManagerData) *ManagerResult {
 	}
 
 	addError := func(err string) *ManagerResult {
+		log.Printf("Draw error: %s", err)
 		result.Errors = append(result.Errors, err)
 		return &result
 	}
@@ -291,4 +293,16 @@ func (mctx *MakaiContext) DrawManager(data *ManagerData) *ManagerResult {
 	}
 
 	return &result
+}
+
+// Since we have two endpoints that are basically the same, do all the work here
+func (mctx *MakaiContext) WebDrawManager(w http.ResponseWriter, values map[string][]string) {
+	var mdata ManagerData
+	err := mctx.decoder.Decode(&mdata, values) //r.URL.Query())
+	if err != nil {
+		log.Printf("Error parsing draw manager request: %s", err)
+		http.Error(w, "Can't parse request", http.StatusBadRequest)
+		return
+	}
+	utils.RespondJson(mctx.DrawManager(&mdata), w, nil)
 }

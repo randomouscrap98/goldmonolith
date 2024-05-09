@@ -27,6 +27,7 @@ type Config struct {
 	KlandUrl        string // URL
 	DrawSafetyRegex string // General regex for checking user-input strings
 	MaxDrawingData  int64  // Maximum amount of data drawings are allowed to take up
+	MaxDrawingFiles int64  // Maximum amount of total files stored in the drawing system
 }
 
 func GetDefaultConfig_Toml() string {
@@ -45,6 +46,7 @@ StaticFilePath="static/makai"         # Path to static files (currently only val
 KlandUrl="/kland"                     # Full url to the root page of kland
 DrawSafetyRegex="^[a-zA-Z0-9_\-]+$"   # General regex for checking user-input strings
 MaxDrawingData=500_000_000            # Maximum amount of data drawings are allowed to take up total
+MaxDrawingFiles=50_000                # Maximum amount of total files in the drawing system
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

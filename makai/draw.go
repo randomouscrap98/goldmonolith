@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/randomouscrap98/goldmonolith/utils"
 )
 
 type DrawingData struct {
@@ -183,6 +184,47 @@ func (mctx *MakaiContext) UpdateDrawingData(name string, size int64, folderId st
 	return drawingId, nil
 }
 
+// Save the given drawing (the raw data given by the javascript) with the given name.
+// This will also save the artist data associated with the drawing.
+func (mctx *MakaiContext) SaveDrawing(drawdata string, drawingId string, artist *ArtistData) error {
+	size, count, err := utils.GetTotalDirectorySize(mctx.config.DrawingsPath)
+	if err != nil {
+		return err
+	}
+	if size >= mctx.config.MaxDrawingData {
+		return fmt.Errorf("No more space for drawings: %d / %d", size, mctx.config.MaxDrawingData)
+	}
+	if count >= mctx.config.MaxDrawingFiles {
+		return fmt.Errorf("Too many drawing files: %d / %d", count, mctx.config.MaxDrawingFiles)
+	}
+	// First, make sure the artist folder exists
+	adatapath, err := mctx.ArtistDataPath(artist.ArtistID)
+	if err != nil {
+		return err
+	}
+	apath := filepath.Dir(adatapath)
+	err = os.MkdirAll(apath, 0770)
+	if err != nil {
+		return err
+	}
+	// Now write the drawing data first (this is more important apparentl)
+	drawingpath, err := mctx.DrawingPath(artist.ArtistID, drawingId)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(drawingpath, []byte(drawdata), 0700)
+	if err != nil {
+		return err
+	}
+	// And finally, write the artist data
+	adata, err := json.Marshal(artist)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(adatapath, adata, 0700)
+	return err
+}
+
 func (mctx *MakaiContext) DrawManager(data *ManagerData) *ManagerResult {
 	result := ManagerResult{
 		InputHelp: []string{"action", "artistID", "drawing", "drawingID", "folderID", "name"},
@@ -232,6 +274,8 @@ func (mctx *MakaiContext) DrawManager(data *ManagerData) *ManagerResult {
 			return addError("Artist root folder not set (programming error!)")
 		}
 		drawingId, err := mctx.UpdateDrawingData(data.Name, int64(len(data.Drawing)), artist.RootFolder, artist)
+		err = mctx.SaveDrawing(data.Drawing, drawingId, artist)
+		log.Printf("Saved drawing %s(%s) for artist %s", drawingId, data.Name, artist.ArtistID)
 	} else {
 		return addError("Unknown action!")
 	}

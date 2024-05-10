@@ -44,6 +44,7 @@ func NewMakaiContext(config *Config) (*MakaiContext, error) {
 	// hot reloading (also it's just better for performance... though memory usage...
 	templates, err := template.New("alltemplates").Funcs(template.FuncMap{
 		"RawHtml": func(c string) template.HTML { return template.HTML(c) },
+		"RawUrl":  func(c string) template.URL { return template.URL(c) },
 	}).ParseGlob(filepath.Join(config.TemplatePath, "*.tmpl"))
 
 	if err != nil {
@@ -81,7 +82,7 @@ func (kctx *MakaiContext) GetDefaultData(r *http.Request) map[string]any {
 	result["runtimeInfo"] = rinfo
 	result["requestUri"] = r.URL.RequestURI()
 	result["cachebust"] = kctx.created.Format(time.RFC3339)
-	result["klandurl"] = template.URL(kctx.config.KlandUrl)
+	result["klandurl"] = kctx.config.KlandUrl
 	//"RawHtml": func(c string) template.HTML { return template.HTML(c) },
 	return result
 }

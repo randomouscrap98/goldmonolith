@@ -17,6 +17,7 @@ const (
 
 func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
+	var err error
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		data := mctx.GetDefaultData(r)
@@ -39,6 +40,24 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 		data := mctx.GetDefaultData(r)
 		data["oroot"] = mctx.config.RootPath + "/tinycomputer"
 		mctx.RunTemplate("tinycomputer_index.tmpl", w, data)
+	})
+
+	//sudokuhandler, err := mctx.GetSudokuHandler()
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	//r.Mount("/sudoku", sudokuhandler)
+	r.Get("/sudoku/", func(w http.ResponseWriter, r *http.Request) {
+		mctx.RenderSudoku("game", w, r)
+	})
+
+	r.Get("/sudoku/bgtest/", func(w http.ResponseWriter, r *http.Request) {
+		mctx.RenderSudoku("bgtest", w, r)
+	})
+
+	r.Get("/sudoku/convert/", func(w http.ResponseWriter, r *http.Request) {
+		mctx.RenderSudoku("convert", w, r)
 	})
 
 	// These are endpoints which have a heavy limiter set
@@ -64,8 +83,6 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 		})
 	})
 
-	var err error
-
 	// Static file path
 	err = utils.FileServer(r, "/", mctx.config.StaticFilePath, true)
 	if err != nil {
@@ -73,3 +90,9 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 	}
 	return r, nil
 }
+
+// func (mctx *MakaiContext) GetSudokuHandler() (http.Handler, error) {
+// 	r := chi.NewRouter()
+//
+// 	return r, nil
+// }

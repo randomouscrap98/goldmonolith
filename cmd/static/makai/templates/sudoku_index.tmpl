@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,maximum-scale=1">
+  <meta name="rating" content="general">
+  <meta name="description" content="Play Sudoku online.">
+  <meta name="keywords" content="Sudoku, sudoku, puzzle, puzzles, javascript">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Sudoku on SmileBASIC Source</title>
+
+  <!--Favicons-->
+  <!--<link rel="icon" type="image/x-icon" sizes="16x16 24x24 32x32 48x48 64x64 96x96 128x128 192x192 256x256" href="/favicon.ico">-->
+  <!--Styles-->
+  <link href='https://fonts.googleapis.com/css?family=Montserrat:400,700' rel='stylesheet' type='text/css'>
+  <link href='https://fonts.googleapis.com/css?family=Droid+Sans+Mono' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="{{.oroot}}/styles/common.css?{{.cachebust}}">
+  <link rel="stylesheet" href="{{.oroot}}/styles/game.css?{{.cachebust}}">
+  <link rel="stylesheet" href="{{.oroot}}/styles/main.css?{{.cachebust}}">
+
+  <script>
+  var rootURL = "{{RawUrl .oroot}}";
+  </script>
+
+  <!--Scripts-->
+  <script src="{{.oroot}}/scripts/compatibility.js?{{.cachebust}}"></script> <!-- was originally second to last? -->
+  <script src="{{.oroot}}/scripts/randomous.js?{{.cachebust}}"></script> <!-- was originally last? -->
+  <script src="{{.oroot}}/scripts/extras.js?{{.cachebust}}"></script>
+  <script src="{{.oroot}}/scripts/canvasLibrary.js?{{.cachebust}}"></script>
+  <script src="{{.oroot}}/scripts/animations.js?{{.cachebust}}"></script>
+  {{if .template_game}}
+  <script src="{{.oroot}}/scripts/options.js?{{.cachebust}}"></script>
+  <script src="{{.oroot}}/scripts/menus.js?{{.cachebust}}"></script>
+  <script src="{{.oroot}}/scripts/game.js?{{.cachebust}}"></script>
+  <script src="{{.oroot}}/scripts/sudoku.js?{{.cachebust}}"></script>
+  <script src="{{.oroot}}/scripts/login.js?{{.cachebust}}"></script>
+  {{end}}
+  {{if .template_bgtest}}
+  <script src="{{.oroot}}/scripts/bgtest.js?{{.cachebust}}"></script>
+  <script src="{{.oroot}}/scripts/puzzleconvert.js?{{.cachebust}}"></script>
+  {{end}}
+
+</head>
+
+<body data-username="{{.user.Username}}" data-uid="{{.user.Uid}}" data-settings="{{.user.JsonOptions}}" data-debug="{{.debug}}">
+  <header>
+  </header>
+  <main>
+      <login-area>
+          <h3>Sudoku Login</h3>
+          {{if not .user.LoggedIn}}
+          <input type="checkbox" id="loginSwitch">
+          <label for="loginSwitch" class="likeButton">Make a new account</label>
+          <form id="loginForm">
+              <input type="text" name="username" placeholder="Username" required>
+              <input type="password" name="password" placeholder="Password" required>
+              <input type="password" name="password2" placeholder="Confirm Password">
+              <button type="submit" id="loginButton">Login</button>
+          </form>
+          {{end}}
+          {{if .user.LoggedIn}}
+          <user-name>{{.user.Username}}</user-name>
+          <form id="logoutForm">
+              <input type="hidden" name="logout" value="true">
+              <button type="submit" id="logoutButton">Logout</button>
+          </form>
+          {{end}}
+      </login-area>
+
+      {{if .template_game}}
+      <cover-box data-puzzlesets="{{.puzzleSets}}">
+      <canvas id="gameScreen"> </canvas>
+      <button-container id="buttons"></button-container>
+      <shade-box></shade-box>
+      <dialog-box id="dialog"><text-area></text-area><button-area></button-area></dialog-box>
+      {{if .debug}}
+      <fps-counter id="fps"></fps-counter>
+      {{end}}
+      </cover-box>
+      {{end}}
+
+      {{if .template_bgtest}}
+      <cover-box>
+      <canvas id="gameScreen"> </canvas>
+      {{if .debug}}
+      <fps-counter id="fps"></fps-counter>
+      {{end}}
+      </cover-box>
+      {{end}}
+
+      {{if .template_convert}}
+      {{if .user.LoggedIn}}
+      <cover-box>
+      <form id="convert">
+      <textarea id="convertText" name="convertText"
+          placeholder="Type puzzles into here"></textarea>
+      <button type="submit">Convert</button>
+      </form>
+      <form id="submit">
+      <textarea id="submitText" name="submitText"
+          placeholder="Formatted puzzles come out here" required></textarea>
+      <input type="text" name="name" placeholder="Name of puzzle pack" required>
+      {{if .user.Admin}}
+      <form-option><input type="checkbox" name="public"> Make Public </form-option>
+      {{end}}
+      <button type="submit">Submit</button>
+      </form>
+      </cover-box>
+      {{end}}
+      {{end}}
+
+  </main>
+</body>
+
+</html>

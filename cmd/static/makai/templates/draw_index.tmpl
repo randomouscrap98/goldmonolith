@@ -322,7 +322,7 @@
          var raw = drawer.drawer._canvas.toDataURL("image/png");
          data.append("raw", raw);
          data.append("bucket", getArtistID());
-         RequestUtilities.XHRSimple("{{.klandurl}}/uploadimage", 
+         RequestUtilities.XHRSimple("{{RawUrl .klandurl}}/uploadimage", 
             callback, data);
       }
       window.addEventListener("load", function()

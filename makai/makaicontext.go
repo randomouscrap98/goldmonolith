@@ -17,11 +17,13 @@ import (
 )
 
 type MakaiContext struct {
-	config    *Config
-	decoder   *schema.Decoder
-	templates *template.Template
-	drawRegex *regexp.Regexp
-	created   time.Time
+	config              *Config
+	decoder             *schema.Decoder
+	templates           *template.Template
+	drawRegex           *regexp.Regexp
+	chatlogIncludeRegex *regexp.Regexp
+	created             time.Time
+	drawDataMu          sync.Mutex
 }
 
 func NewMakaiContext(config *Config) (*MakaiContext, error) {
@@ -31,6 +33,10 @@ func NewMakaiContext(config *Config) (*MakaiContext, error) {
 		return nil, err
 	}
 	drawRegex, err := regexp.Compile(config.DrawSafetyRegex)
+	if err != nil {
+		return nil, err
+	}
+	chatlogIncludeRegex, err := regexp.Compile(config.ChatlogIncludeRegex)
 	if err != nil {
 		return nil, err
 	}
@@ -46,11 +52,12 @@ func NewMakaiContext(config *Config) (*MakaiContext, error) {
 
 	// Now we're good to go
 	return &MakaiContext{
-		config:    config,
-		templates: templates,
-		decoder:   schema.NewDecoder(),
-		drawRegex: drawRegex,
-		created:   time.Now(),
+		config:              config,
+		templates:           templates,
+		decoder:             schema.NewDecoder(),
+		drawRegex:           drawRegex,
+		chatlogIncludeRegex: chatlogIncludeRegex,
+		created:             time.Now(),
 	}, nil
 }
 

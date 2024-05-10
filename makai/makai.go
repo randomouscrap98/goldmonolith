@@ -53,6 +53,10 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 		mctx.RunTemplate("tinycomputer_index.tmpl", w, data)
 	})
 
+	r.Get("/chatlog/", func(w http.ResponseWriter, r *http.Request) {
+		mctx.WebSearchChatlogs(w, r)
+	})
+
 	var err error
 
 	// Static file path

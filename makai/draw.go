@@ -124,7 +124,11 @@ func (mctx *MakaiContext) GetArtistData(artistId string) (*ArtistData, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A GLOBAL lock on all draw data file operations. Very slow but nobody uses
+	// this anyway; the one user (me) won't notice because nobody else is holding the lock
+	mctx.drawDataMu.Lock()
 	file, err := os.ReadFile(apath)
+	mctx.drawDataMu.Unlock()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil // This is OK, there's just no artist data yet
@@ -147,6 +151,10 @@ func (mctx *MakaiContext) GetDrawingData(artistId string, drawingId string) ([]b
 	if err != nil {
 		return nil, err
 	}
+	// A GLOBAL lock on all draw data file operations. Very slow but nobody uses
+	// this anyway; the one user (me) won't notice because nobody else is holding the lock
+	mctx.drawDataMu.Lock()
+	defer mctx.drawDataMu.Unlock()
 	return os.ReadFile(dpath)
 }
 
@@ -211,6 +219,10 @@ func (mctx *MakaiContext) SaveDrawing(drawdata string, drawingId string, artist 
 	if err != nil {
 		return err
 	}
+	// A GLOBAL lock on all draw data file operations. Very slow but nobody uses
+	// this anyway; the one user (me) won't notice because nobody else is holding the lock
+	mctx.drawDataMu.Lock()
+	defer mctx.drawDataMu.Unlock()
 	apath := filepath.Dir(adatapath)
 	err = os.MkdirAll(apath, 0770)
 	if err != nil {

@@ -35,3 +35,11 @@ func StrGetOrDefault(value *string, def string) string {
 	}
 	return vp
 }
+
+func EscapeShellArg(arg string) string {
+	return "'" + strings.Replace(arg, "'", "\\'", -1) + "'"
+}
+
+func EscapeBashArg(command string) string {
+	return "\"" + strings.Replace(command, "\"", "\\\"", -1) + "\""
+}

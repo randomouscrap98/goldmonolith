@@ -145,7 +145,11 @@ function manualChatDrawSubmit()
          <div id="manualchatdrawresults">
          </div>
       </div>
-      <div style="display: none">{{.searchglob}}</div>
+      <table style="display: none">
+        <tr><td>Search Glob</td><td>{{.searchglob}}</td></tr>
+        <tr><td>Chunk</td><td>{{.grepchunk}}</td></tr>
+        <tr><td>Timeout</td><td>{{.greptimeout}}</td></tr>
+      </table>
    </body>
 
 </html>

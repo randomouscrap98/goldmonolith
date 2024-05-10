@@ -1,6 +1,8 @@
 package makai
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -20,7 +22,7 @@ type ChatlogSearch struct {
 	After      int    `schema:"after"`
 }
 
-func (mctx *MakaiContext) SearchChatlogs(search *ChatlogSearch) (string, string, error) {
+func (mctx *MakaiContext) SearchChatlogs(search *ChatlogSearch, cancel context.Context) (string, string, error) {
 
 	// Args for grep
 	args := []string{"-InE", "-e", search.Search} //make([]string, 0, 20)
@@ -56,9 +58,22 @@ func (mctx *MakaiContext) SearchChatlogs(search *ChatlogSearch) (string, string,
 		// thisargs := make([]string, len(args), len(args) + len(fslice))
 		// copy(thisargs, args)
 		// thisargs = append(thisargs, fslice...)
-		cmd := exec.Command("grep", thisargs...)
+		cmd := exec.CommandContext(cancel, "grep", thisargs...)
 		cmd.Stdout = &result
 		cmd.Stderr = &errout
+		if mctx.config.ChatlogLogging {
+			log.Printf("Running grep: " + cmd.String())
+		}
+		err := cmd.Run()
+		if err != nil {
+			var ee *exec.ExitError
+			if errors.As(err, &ee) {
+				if ee.ExitCode() == 1 { // Grep is just funny like that...
+					continue
+				}
+			}
+			return "", "", err
+		}
 	}
 
 	//var command = $"ls *.txt | xargs grep -InE -e {EscapeShellArg(search)} {incl}";
@@ -79,9 +94,13 @@ func (mctx *MakaiContext) WebSearchChatlogs(w http.ResponseWriter, r *http.Reque
 	data["oroot"] = mctx.config.RootPath + "/chatlog"
 	data["chatlogurl"] = mctx.config.ChatlogUrl
 	data["searchglob"] = mctx.config.ChatlogFileGlob
+	data["grepchunk"] = mctx.config.ChatlogGrepChunk
+	data["greptimeout"] = time.Duration(mctx.config.ChatlogMaxRuntime)
 	if query.Search != "" {
 		start := time.Now()
-		output, errout, err := mctx.SearchChatlogs(&query)
+		cancel, cfunc := context.WithTimeout(r.Context(), time.Duration(mctx.config.ChatlogMaxRuntime))
+		defer cfunc()
+		output, errout, err := mctx.SearchChatlogs(&query, cancel)
 		if err != nil {
 			log.Printf("Error running chatlog search: %s", err)
 			http.Error(w, "Some kind of command error", http.StatusInternalServerError)

@@ -8,7 +8,7 @@ import (
 	"log"
 	"time"
 
-	//"github.com/randomouscrap98/goldmonolith/utils"
+	"github.com/randomouscrap98/goldmonolith/utils"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -19,21 +19,22 @@ const (
 )
 
 type Config struct {
-	RootPath            string // The root path to makai (the url path)
-	AdminId             string // Admin key
-	DrawingsPath        string // Path to drawings for simple makai drawer
-	TemplatePath        string // path to all makai templates
-	StaticFilePath      string // path to all static files
-	KlandUrl            string // URL
-	DrawSafetyRegex     string // General regex for checking user-input strings
-	MaxDrawingData      int64  // Maximum amount of data drawings are allowed to take up
-	MaxDrawingFiles     int64  // Maximum amount of total files stored in the drawing system
-	MaxFormMemory       int    // Maximum form size to load entirely into memory for makai
-	ChatlogIncludeRegex string // Regex for allowed include format in chatlogs
-	ChatlogFileGlob     string // Glob for finding chatlog files
-	ChatlogGrepChunk    int    // Amount of files to pass to grep all at once
-	ChatlogUrl          string // Full url for where to find actual chatlogs
-	ChatlogLogging      bool   // Whether to log chatlog search commands
+	RootPath            string         // The root path to makai (the url path)
+	AdminId             string         // Admin key
+	DrawingsPath        string         // Path to drawings for simple makai drawer
+	TemplatePath        string         // path to all makai templates
+	StaticFilePath      string         // path to all static files
+	KlandUrl            string         // URL
+	DrawSafetyRegex     string         // General regex for checking user-input strings
+	MaxDrawingData      int64          // Maximum amount of data drawings are allowed to take up
+	MaxDrawingFiles     int64          // Maximum amount of total files stored in the drawing system
+	MaxFormMemory       int            // Maximum form size to load entirely into memory for makai
+	ChatlogIncludeRegex string         // Regex for allowed include format in chatlogs
+	ChatlogFileGlob     string         // Glob for finding chatlog files
+	ChatlogGrepChunk    int            // Amount of files to pass to grep all at once
+	ChatlogUrl          string         // Full url for where to find actual chatlogs
+	ChatlogLogging      bool           // Whether to log chatlog search commands
+	ChatlogMaxRuntime   utils.Duration // Maximum amount of time to let grep run
 }
 
 func GetDefaultConfig_Toml() string {
@@ -59,6 +60,7 @@ ChatlogFileGlob="data/makai/chatlogs/*.txt"  # Glob for finding chatlog files
 ChatlogGrepChunk=100                  # Amount of files to pass to grep all at once
 ChatlogUrl=""                         # Full url for where to find actual chatlogs
 ChatlogLogging=false                  # Whether to log chatlog search commands
+ChatlogMaxRuntime="15s"               # Maximum amount of time to let grep run
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

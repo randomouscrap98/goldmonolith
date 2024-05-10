@@ -25,9 +25,10 @@ type ChatlogSearch struct {
 func (mctx *MakaiContext) SearchChatlogs(search *ChatlogSearch, cancel context.Context) (string, string, error) {
 
 	// Args for grep
-	args := []string{"-InE", "-e", search.Search} //make([]string, 0, 20)
+	args := []string{"-InE", "-e", search.Search}
 
 	if search.FileFilter != "" {
+		//log.Printf("Filter: %s, regex: %s", search.FileFilter, mctx.chatlogIncludeRegex.String())
 		if !mctx.chatlogIncludeRegex.Match([]byte(search.FileFilter)) {
 			return "", "", fmt.Errorf("Bad characters in include, must be: %s", mctx.config.ChatlogIncludeRegex)
 		}
@@ -47,17 +48,12 @@ func (mctx *MakaiContext) SearchChatlogs(search *ChatlogSearch, cancel context.C
 		return "", "", err
 	}
 
-	//var buffer bytes.Buffer
-	//var errbuffer bytes.Buffer
 	var result strings.Builder
 	var errout strings.Builder
 
 	for i := 0; i < len(files); i += mctx.config.ChatlogGrepChunk {
 		fslice := files[i:min(len(files), i+mctx.config.ChatlogGrepChunk)]
 		thisargs := slices.Concat(args, fslice)
-		// thisargs := make([]string, len(args), len(args) + len(fslice))
-		// copy(thisargs, args)
-		// thisargs = append(thisargs, fslice...)
 		cmd := exec.CommandContext(cancel, "grep", thisargs...)
 		cmd.Stdout = &result
 		cmd.Stderr = &errout
@@ -74,9 +70,11 @@ func (mctx *MakaiContext) SearchChatlogs(search *ChatlogSearch, cancel context.C
 			}
 			return "", "", err
 		}
+		if result.Len() > mctx.config.ChatlogMaxResult || errout.Len() > mctx.config.ChatlogMaxResult {
+			errout.WriteString(fmt.Sprintf("Maximum result size reached: %d (may have gone over)", mctx.config.ChatlogMaxResult))
+			break
+		}
 	}
-
-	//var command = $"ls *.txt | xargs grep -InE -e {EscapeShellArg(search)} {incl}";
 
 	return result.String(), errout.String(), nil
 }
@@ -102,8 +100,8 @@ func (mctx *MakaiContext) WebSearchChatlogs(w http.ResponseWriter, r *http.Reque
 		defer cfunc()
 		output, errout, err := mctx.SearchChatlogs(&query, cancel)
 		if err != nil {
-			log.Printf("Error running chatlog search: %s", err)
-			http.Error(w, "Some kind of command error", http.StatusInternalServerError)
+			//log.Printf("Error running chatlog search: %s", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		data["result"] = output

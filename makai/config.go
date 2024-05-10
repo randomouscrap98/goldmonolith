@@ -35,6 +35,9 @@ type Config struct {
 	ChatlogUrl          string         // Full url for where to find actual chatlogs
 	ChatlogLogging      bool           // Whether to log chatlog search commands
 	ChatlogMaxRuntime   utils.Duration // Maximum amount of time to let grep run
+	ChatlogMaxResult    int            // Max size of chatlog search result
+	HeavyLimitCount     int            // Amount of hits to the heavy limit endpoints in given interval
+	HeavyLimitInterval  utils.Duration // Interval for the heavy limit
 }
 
 func GetDefaultConfig_Toml() string {
@@ -55,12 +58,15 @@ DrawSafetyRegex="^[a-zA-Z0-9_-]+$"    # General regex for checking user-input st
 MaxDrawingData=500_000_000            # Maximum amount of data drawings are allowed to take up total
 MaxDrawingFiles=50_000                # Maximum amount of total files in the drawing system
 MaxFormMemory=500_000                 # Maximum form size to load entirely into memory for makai
-ChatlogIncludeRegex="^[a-zA-z0-9*-]+$"       # Regex for allowed include format in chatlogs
+ChatlogIncludeRegex="^[a-zA-Z0-9*-]+$"       # Regex for allowed include format in chatlogs
 ChatlogFileGlob="data/makai/chatlogs/*.txt"  # Glob for finding chatlog files
-ChatlogGrepChunk=100                  # Amount of files to pass to grep all at once
+ChatlogGrepChunk=30                   # Amount of files to pass to grep all at once
 ChatlogUrl=""                         # Full url for where to find actual chatlogs
 ChatlogLogging=false                  # Whether to log chatlog search commands
 ChatlogMaxRuntime="15s"               # Maximum amount of time to let grep run
+ChatlogMaxResult=200_000              # Max size of chatlog search result
+HeavyLimitCount=30                    # Amount of hits to the heavy limit endpoints in given interval
+HeavyLimitInterval="1m"               # Interval for the heavy limit
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

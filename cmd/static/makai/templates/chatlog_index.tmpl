@@ -15,6 +15,10 @@ input[type="number"] {
 .error {
     color: red;
 }
+.annotation {
+  font-size: 0.8em;
+  color: #777;
+}
 .chatdrawbutton {
    border: none;
    background: none;
@@ -42,7 +46,8 @@ window.onload = function()
    if(!("results" in window))
       return;
 
-    results.innerHTML = results.innerHTML.replaceAll(/^([^:]+)(:\d+:)([^\[]+\[\d+:\d+\].?:\s*)(.*)$/gm, function(all, gpre, gnum, usr, dat)
+    //results.innerHTML = results.innerHTML.replaceAll(/^([^:]+)(:\d+:)([^\[]+\[\d+:\d+\].?:\s*)(.*)$/gm, function(all, gpre, gnum, usr, dat)
+    results.innerHTML = results.innerHTML.replaceAll(/^([^\s]+\s+)([^\[]+\[\d+:\d+\].?:\s*)(.*)$/gm, function(all, gpre, usr, dat)
     {
        if(dat.length > 100 && /^[A-Za-z\d+/]+=*$/.test(dat))
        {
@@ -54,11 +59,11 @@ window.onload = function()
          var dataElem = document.createElement("span");
          dataElem.textContent = dat;
          dataElem.class = "chatdrawdata";
-         return gpre + gnum + usr + button.outerHTML + dataElem.outerHTML;
+         return gpre + usr + button.outerHTML + dataElem.outerHTML;
        }
        else
        {
-          return gpre + gnum + usr + dat;
+          return gpre + usr + dat;
        }
     });
     results.innerHTML = results.innerHTML.replaceAll(/(https?:\/\/[^\s]+)/g, function(a, b)
@@ -118,6 +123,7 @@ function manualChatDrawSubmit()
    </head>
 
    <body>
+      <h3>Old SBS chatlog search</h3>
       <form>
          <input name="search" type="text" placeholder="grep search" value="{{.get.Search}}">
          <input name="filefilter" type="text" placeholder="file pattern" value="{{.get.FileFilter}}">
@@ -133,11 +139,9 @@ function manualChatDrawSubmit()
       {{if .get.Search}}
       <div class="results">
         <h3>Search results for: {{.get.Search}}{{if .get.FileFilter}} in files '{{.get.FileFilter}}'{{end}}</h3>
-        <!--<p>Command: {{.command}} <button onclick="loadAllDrawings()" id="loadalldrawings">Load All Drawings</button></p>-->
-        <p><button onclick="loadAllDrawings()" id="loadalldrawings">Load All Drawings</button></p>
+        <p>Search took: {{.time}} sec <button onclick="loadAllDrawings()" id="loadalldrawings">Load All Drawings</button></p>
         <pre id="results">{{.result}}{{if not .result}}No results!{{end}}</pre>
       </div>
-      <footer>Search took: {{.time}} sec</footer>
       {{end}}
       <div id="manualchatdraw">
          <input type="text" id="manualchatdrawtext" placeholder="Drawing string">
@@ -145,6 +149,11 @@ function manualChatDrawSubmit()
          <div id="manualchatdrawresults">
          </div>
       </div>
+      <p class="annotation">
+        This page searches the database of old SBS chatlogs from 2015-2020 using regular expressions.
+        It has heavy limits placed on it; use the file pattern to search for specific ranges, such as 
+        limiting to only 2018 (18*).
+      </p>
       <table style="display: none">
         <tr><td>Search Glob</td><td>{{.searchglob}}</td></tr>
         <tr><td>Chunk</td><td>{{.grepchunk}}</td></tr>

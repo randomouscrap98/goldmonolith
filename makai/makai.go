@@ -42,12 +42,6 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 		mctx.RunTemplate("tinycomputer_index.tmpl", w, data)
 	})
 
-	//sudokuhandler, err := mctx.GetSudokuHandler()
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	//r.Mount("/sudoku", sudokuhandler)
 	r.Get("/sudoku/", func(w http.ResponseWriter, r *http.Request) {
 		mctx.RenderSudoku("game", w, r)
 	})
@@ -90,9 +84,3 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 	}
 	return r, nil
 }
-
-// func (mctx *MakaiContext) GetSudokuHandler() (http.Handler, error) {
-// 	r := chi.NewRouter()
-//
-// 	return r, nil
-// }

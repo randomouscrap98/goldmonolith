@@ -112,6 +112,32 @@ func (mctx *MakaiContext) GetSudokuUserByName(name string) (*SudokuUser, error) 
 	return &result, err
 }
 
+// Fill the settings fields and stuff
+func (mctx *MakaiContext) FillSudokuUser(user *SudokuUser) error {
+  rows, err := mctx.sudokuDb.Query("SELECT * FROM settings WHERE uid = ?", user.UID)
+  if err!= nil {
+    return err
+  }
+  defer rows.Close()
+  for rows.next() {
+
+  }
+
+  settings := make([]SDBSetting, 
+  mctx.Select(
+        var initialResult = await con.QueryAsync<SDBSetting>("select * from settings where uid = @uid", new { uid = uid });
+        return initialResult.ToDictionary(x => x.name, y => JsonConvert.DeserializeObject(y.value));
+
+            result.options = DefaultOptions;
+            var options = await GetRawSettingsForUser(uid);
+
+            foreach (var option in options)
+            {
+                if(result.options.ContainsKey(option.Key))
+                    result.options[option.Key].value = option.Value;
+            }
+}
+
 // ------------------ WEB STUFF ------------------
 
 func (mctx *MakaiContext) sudokuLogin(username string, password string, w http.ResponseWriter) QueryObject {

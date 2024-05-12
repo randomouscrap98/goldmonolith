@@ -74,7 +74,7 @@ type SudokuUser struct {
 
 // SDBUser represents the 'users' table
 type SDBUser struct {
-	UID      int       `db:"uid"`
+	UID      int64     `db:"uid"`
 	Created  time.Time `db:"created"`
 	Username string    `db:"username"`
 	Password string    `db:"password"`
@@ -83,16 +83,16 @@ type SDBUser struct {
 
 // SDBSetting represents the 'settings' table
 type SDBSetting struct {
-	SID   int    `db:"sid"`
-	UID   int    `db:"uid"`
+	SID   int64  `db:"sid"`
+	UID   int64  `db:"uid"`
 	Name  string `db:"name"`
 	Value string `db:"value"`
 }
 
 // SDBPuzzle represents the 'puzzles' table
 type SDBPuzzle struct {
-	PID       int    `db:"pid"`
-	UID       int    `db:"uid"`
+	PID       int64  `db:"pid"`
+	UID       int64  `db:"uid"`
 	Solution  string `db:"solution"`
 	Puzzle    string `db:"puzzle"`
 	PuzzleSet string `db:"puzzleset"`
@@ -101,19 +101,19 @@ type SDBPuzzle struct {
 
 // SDBInProgress represents the 'inprogress' table
 type SDBInProgress struct {
-	IPID    int       `db:"ipid"`
-	UID     int       `db:"uid"`
-	PID     int       `db:"pid"`
+	IPID    int64     `db:"ipid"`
+	UID     int64     `db:"uid"`
+	PID     int64     `db:"pid"`
 	Paused  time.Time `db:"paused"`
-	Seconds int       `db:"seconds"`
+	Seconds int64     `db:"seconds"`
 	Puzzle  string    `db:"puzzle"`
 }
 
 // SDBCompletions represents the 'completions' table
 type SDBCompletions struct {
-	CID       int       `db:"cid"`
-	UID       int       `db:"uid"`
-	PID       int       `db:"pid"`
+	CID       int64     `db:"cid"`
+	UID       int64     `db:"uid"`
+	PID       int64     `db:"pid"`
 	Completed time.Time `db:"completed"`
-	Seconds   int       `db:"seconds"`
+	Seconds   int64     `db:"seconds"`
 }

@@ -1,6 +1,7 @@
 package makai
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -64,6 +65,30 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 
 		r.Get("/draw/manager/", func(w http.ResponseWriter, r *http.Request) {
 			mctx.WebDrawManager(w, r.URL.Query())
+		})
+
+		r.Post("/sudoku/login/", func(w http.ResponseWriter, r *http.Request) {
+			var result QueryObject
+			var query SudokuLoginQuery
+			r.ParseForm()
+			err := mctx.decoder.Decode(&query, r.Form)
+			if err != nil {
+				result = queryFromErrors(fmt.Sprintf("Couldn't parse form: %s", err))
+			} else if query.Logout {
+				utils.DeleteCookie(SudokuCookie, w)
+				result = queryFromResult(true)
+			} else if query.Username != "" && query.Password != "" {
+				if query.Password2 != "" { // User registration
+
+					result = mctx.sudokuLogin(query.Username, query.Password, w)
+				} else {
+					result = mctx.sudokuLogin(query.Username, query.Password, w)
+				}
+			} else {
+				result = queryFromErrors("Must provide username and password at least! Or logout!")
+			}
+
+			utils.RespondJson(result, w, nil)
 		})
 
 		r.Post("/draw/manager/", func(w http.ResponseWriter, r *http.Request) {

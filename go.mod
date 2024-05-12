@@ -10,6 +10,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/schema v1.3.0
 	github.com/jmoiron/sqlx v1.3.5
+	github.com/kataras/jwt v0.1.12
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/pelletier/go-toml/v2 v2.2.1
 	golang.org/x/crypto v0.23.0

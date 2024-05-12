@@ -38,15 +38,20 @@ type Config struct {
 	HeavyLimitCount     int            // Amount of hits to the heavy limit endpoints in given interval
 	HeavyLimitInterval  utils.Duration // Interval for the heavy limit
 	SudokuDbPath        string         // Path to the sudoku database (sqlite)
+	SudokuSecretKey     string         // Secret key used for signing sudoku sessions
+	SudokuCookieExpire  utils.Duration // How long to keep sudoku cookie
 }
 
 func GetDefaultConfig_Toml() string {
 	randomUser := make([]byte, 16)
 	_, err := rand.Read(randomUser)
-	if err != nil {
-		log.Printf("WARN: couldn't generate random user")
+	secretKey := make([]byte, 16)
+	_, err2 := rand.Read(randomUser)
+	if err != nil || err2 != nil {
+		log.Printf("WARN: couldn't generate randomness for config")
 	}
 	randomHex := hex.EncodeToString(randomUser)
+	secretHex := hex.EncodeToString(secretKey)
 	return fmt.Sprintf(`# Config auto-generated on %s
 RootPath="/makai"                     # Root path for makai (if at root, leave BLANK)
 AdminId="%s"                          # Admin key (randomly generated)
@@ -68,7 +73,9 @@ ChatlogMaxResult=200_000              # Max size of chatlog search result
 HeavyLimitCount=30                    # Amount of hits to the heavy limit endpoints in given interval
 HeavyLimitInterval="1m"               # Interval for the heavy limit
 SudokuDbPath="data/makai/sudoku.db"   # Path to the sudoku database (sqlite)
-`, time.Now().Format(time.RFC3339), randomHex)
+SudokuSecretKey="%s" # Secret key used for signing sudoku sessions
+SudokuCookieExpire="8766h"            # How long sudoku cookie lasts for
+`, time.Now().Format(time.RFC3339), randomHex, secretHex)
 }
 
 // func (c *Config) OpenSudokuDb() (*sqlx.DB, error) {

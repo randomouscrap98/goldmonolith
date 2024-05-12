@@ -3,6 +3,7 @@ package makai
 import (
 	"database/sql"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -17,15 +18,29 @@ const (
 	SudokuCookie = "makai_sudoku_session"
 )
 
-func (mctx *MakaiContext) RenderSudoku(subtemplate string, w http.ResponseWriter, r *http.Request) {
-	data := mctx.GetDefaultData(r)
-	data["oroot"] = mctx.config.RootPath + "/sudoku"
-	data["template_"+subtemplate] = true
-	data["debug"] = r.URL.Query().Has("debug")
-	data["puzzleSets"] = "" // Some serialized thing...
-	_, err := os.Stat(mctx.config.SudokuDbPath)
-	data["dbexists"] = err == nil
-	mctx.RunTemplate("sudoku_index.tmpl", w, data)
+type SudokuLoginQuery struct {
+	Username  string `schema:"username"`
+	Password  string `schema:"password"`
+	Password2 string `schema:"password2"`
+	Logout    bool   `schema:"logout"`
+}
+
+type SudokuUserSession struct {
+	UserId int64 `json:"uid"`
+}
+
+func queryFromResult(result any) QueryObject {
+	return QueryObject{
+		QueryOK: true,
+		Result:  result,
+	}
+}
+
+func queryFromErrors(errors ...string) QueryObject {
+	return QueryObject{
+		QueryOK: false,
+		Errors:  errors,
+	}
 }
 
 // Generate a hash string from the given password.
@@ -37,24 +52,7 @@ func passwordHash(password string) (string, error) {
 	return base64.StdEncoding.EncodeToString(hash), nil
 }
 
-// Try a login
-func (mctx *MakaiContext) sudokuPasswordVerify(username string, password string) (bool, error) {
-	var passhash string
-	err := mctx.sudokuDb.QueryRow("SELECT password FROM users WHERE username = ?", username).Scan(&passhash)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		} else {
-			return true, err
-		}
-	}
-	rawhash, err := base64.StdEncoding.DecodeString(passhash)
-	if err != nil {
-		return true, err
-	}
-	return true, bcrypt.CompareHashAndPassword(rawhash, []byte(password))
-}
-
+// Get all options available and their defaults
 func getDefaultSudokuOptions() map[string]*MySudokuOption {
 	result := make(map[string]*MySudokuOption)
 	result["lowperformance"] = newMySudokuOption(false, "Low Performance Mode", nil)
@@ -68,7 +66,26 @@ func getDefaultSudokuOptions() map[string]*MySudokuOption {
 	return result
 }
 
+func (mctx *MakaiContext) RenderSudoku(subtemplate string, w http.ResponseWriter, r *http.Request) {
+	data := mctx.GetDefaultData(r)
+	data["oroot"] = mctx.config.RootPath + "/sudoku"
+	data["template_"+subtemplate] = true
+	data["debug"] = r.URL.Query().Has("debug")
+	data["puzzleSets"] = "" // Some serialized thing...
+	_, err := os.Stat(mctx.config.SudokuDbPath)
+	data["dbexists"] = err == nil
+	mctx.RunTemplate("sudoku_index.tmpl", w, data)
+}
+
+// Add sudoku user. checks if username exists, etc.
 func (mctx *MakaiContext) RegisterSudokuUser(username string, password string) (int64, error) {
+	if !mctx.sudokuUsernameRegex.Match([]byte(username)) {
+		return 0, fmt.Errorf("Username malformed!")
+	}
+	existinguser, _ := mctx.GetSudokuUserByName(username)
+	if existinguser != nil {
+		return 0, fmt.Errorf("Username not available!")
+	}
 	hash, err := passwordHash(password)
 	if err != nil {
 		return 0, err
@@ -93,31 +110,6 @@ func (mctx *MakaiContext) GetSudokuUserByName(name string) (*SudokuUser, error) 
 	result := SudokuUser{}
 	err := mctx.sudokuDb.Get(&result, "SELECT * FROM users WHERE username = ?", name)
 	return &result, err
-}
-
-func queryFromResult(result any) QueryObject {
-	return QueryObject{
-		QueryOK: true,
-		Result:  result,
-	}
-}
-
-func queryFromErrors(errors ...string) QueryObject {
-	return QueryObject{
-		QueryOK: false,
-		Errors:  errors,
-	}
-}
-
-type SudokuLoginQuery struct {
-	Username  string `schema:"username"`
-	Password  string `schema:"password"`
-	Password2 string `schema:"password2"`
-	Logout    bool   `schema:"logout"`
-}
-
-type SudokuUserSession struct {
-	UserId int64 `json:"uid"`
 }
 
 // ------------------ WEB STUFF ------------------

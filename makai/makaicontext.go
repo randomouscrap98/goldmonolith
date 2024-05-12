@@ -23,6 +23,7 @@ type MakaiContext struct {
 	decoder             *schema.Decoder
 	templates           *template.Template
 	drawRegex           *regexp.Regexp
+	sudokuUsernameRegex *regexp.Regexp
 	chatlogIncludeRegex *regexp.Regexp
 	created             time.Time
 	drawDataMu          sync.Mutex
@@ -40,6 +41,10 @@ func NewMakaiContext(config *Config) (*MakaiContext, error) {
 		return nil, err
 	}
 	chatlogIncludeRegex, err := regexp.Compile(config.ChatlogIncludeRegex)
+	if err != nil {
+		return nil, err
+	}
+	sudokuUsernameRegex, err := regexp.Compile(config.SudokuUsernameRegex)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +70,7 @@ func NewMakaiContext(config *Config) (*MakaiContext, error) {
 		templates:           templates,
 		decoder:             schema.NewDecoder(),
 		drawRegex:           drawRegex,
+		sudokuUsernameRegex: sudokuUsernameRegex,
 		chatlogIncludeRegex: chatlogIncludeRegex,
 		created:             time.Now(),
 		sudokuDb:            sudokudb,

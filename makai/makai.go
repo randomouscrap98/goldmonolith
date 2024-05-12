@@ -79,8 +79,24 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 				result = queryFromResult(true)
 			} else if query.Username != "" && query.Password != "" {
 				if query.Password2 != "" { // User registration
-
-					result = mctx.sudokuLogin(query.Username, query.Password, w)
+					existinguser, _ := mctx.GetSudokuUserByName(query.Username)
+					if query.Password != query.Password2 {
+						result = queryFromErrors("Passwords don't match!")
+					} else if !mctx.sudokuUsernameRegex.Match([]byte(query.Username)) {
+						result = queryFromErrors("Username malformed!")
+					} else if existinguser != nil {
+						result = queryFromErrors("Username not available")
+					} else {
+						// Actual registration here
+						id, err := mctx.RegisterSudokuUser(query.Username, query.Password)
+						if err != nil {
+							log.Printf("User registration failed: %s", err)
+							result = queryFromErrors(fmt.Sprintf("Registration failed: %s", err))
+						} else {
+							log.Printf("Sudoku user '%s' registered (uid %d)", query.Username, id)
+							result = mctx.sudokuLogin(query.Username, query.Password, w)
+						}
+					}
 				} else {
 					result = mctx.sudokuLogin(query.Username, query.Password, w)
 				}

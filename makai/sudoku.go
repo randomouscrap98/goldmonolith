@@ -1,6 +1,7 @@
 package makai
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"log"
 	"net/http"
@@ -36,13 +37,22 @@ func passwordHash(password string) (string, error) {
 	return base64.StdEncoding.EncodeToString(hash), nil
 }
 
-// Compare a password with a hash generated from passwordHash
-func passwordVerify(password string, hash string) error {
-	rawhash, err := base64.StdEncoding.DecodeString(hash)
+// Try a login
+func (mctx *MakaiContext) sudokuPasswordVerify(username string, password string) (bool, error) {
+	var passhash string
+	err := mctx.sudokuDb.QueryRow("SELECT password FROM users WHERE username = ?", username).Scan(&passhash)
 	if err != nil {
-		return err
+		if err == sql.ErrNoRows {
+			return false, nil
+		} else {
+			return true, err
+		}
 	}
-	return bcrypt.CompareHashAndPassword(rawhash, []byte(password))
+	rawhash, err := base64.StdEncoding.DecodeString(passhash)
+	if err != nil {
+		return true, err
+	}
+	return true, bcrypt.CompareHashAndPassword(rawhash, []byte(password))
 }
 
 func getDefaultSudokuOptions() map[string]*MySudokuOption {
@@ -63,24 +73,24 @@ func (mctx *MakaiContext) RegisterSudokuUser(username string, password string) (
 	if err != nil {
 		return 0, err
 	}
-
-	result, err := mctx.sudokuDb.Exec("INSERT INTO users(username, password, admin) VALUES (?,?,?)",
-		username, hash, false)
+	result, err := mctx.sudokuDb.Exec(
+		"INSERT INTO users(username, password, admin) VALUES (?,?,?)",
+		username, hash, false,
+	)
 	if err != nil {
 		return 0, err
 	}
-
 	return result.LastInsertId()
 }
 
-func (mctx *MakaiContext) GetSudokuUserById(id int64) (*SDBUser, error) {
-	result := SDBUser{}
+func (mctx *MakaiContext) GetSudokuUserById(id int64) (*SudokuUser, error) {
+	result := SudokuUser{}
 	err := mctx.sudokuDb.Get(&result, "SELECT * FROM users WHERE uid = ?", id)
 	return &result, err
 }
 
-func (mctx *MakaiContext) GetSudokuUserByName(name string) (*SDBUser, error) {
-	result := SDBUser{}
+func (mctx *MakaiContext) GetSudokuUserByName(name string) (*SudokuUser, error) {
+	result := SudokuUser{}
 	err := mctx.sudokuDb.Get(&result, "SELECT * FROM users WHERE username = ?", name)
 	return &result, err
 }
@@ -113,23 +123,43 @@ type SudokuUserSession struct {
 // ------------------ WEB STUFF ------------------
 
 func (mctx *MakaiContext) sudokuLogin(username string, password string, w http.ResponseWriter) QueryObject {
-	user, err := mctx.GetSudokuUserByName(username)
+	var passhash string
+	var uid int64
+	err := mctx.sudokuDb.QueryRow("SELECT password,uid FROM users WHERE username = ?", username).Scan(&passhash, &uid)
 	if err != nil {
-		log.Printf("Error logging in: %s", err)
-		return queryFromErrors("User not found!")
+		if err == sql.ErrNoRows {
+			return queryFromErrors("User not found!")
+		} else {
+			log.Printf("Error logging in (db query): %s", err)
+			return queryFromErrors("Internal server error")
+		}
 	}
-	err = passwordVerify(password, user.Password)
+	rawhash, err := base64.StdEncoding.DecodeString(passhash)
+	if err != nil {
+		log.Printf("Error logging in (db query): %s", err)
+		return queryFromErrors("Internal server error")
+	}
+	err = bcrypt.CompareHashAndPassword(rawhash, []byte(password))
 	if err != nil {
 		log.Printf("Error logging in (password): %s", err)
 		return queryFromErrors("Password failure!")
 	}
-	session := SudokuUserSession{UserId: user.UID}
+	session := SudokuUserSession{UserId: uid}
 	token, err := jwt.Sign(jwt.HS256, []byte(mctx.config.SudokuSecretKey), session, jwt.MaxAge(time.Duration(mctx.config.SudokuCookieExpire)))
+	if err != nil {
+		log.Printf("Error logging in (sign token): %s", err)
+		return queryFromErrors("Internal server error (token)")
+	}
 	// Set cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:   SudokuCookie,
+		Value:  string(token),
+		MaxAge: int(time.Duration(mctx.config.SudokuCookieExpire).Seconds()),
+	})
 	return queryFromResult(true)
 }
 
-func (mctx *MakaiContext) sudokuGetCurrentUser(r *http.Request) (*SDBUser, error) {
+func (mctx *MakaiContext) sudokuGetCurrentUser(r *http.Request) (*SudokuUser, error) {
 	cookie, err := r.Cookie(SudokuCookie)
 	if err != nil {
 		return nil, err

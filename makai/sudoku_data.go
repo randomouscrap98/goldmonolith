@@ -73,13 +73,13 @@ type SudokuUser struct {
 // -------- RAW DB OBJECTS -------------
 
 // SDBUser represents the 'users' table
-type SDBUser struct {
-	UID      int64     `db:"uid"`
-	Created  time.Time `db:"created"`
-	Username string    `db:"username"`
-	Password string    `db:"password"`
-	Admin    bool      `db:"admin"`
-}
+// type SDBUser struct {
+// 	UID      int64     `db:"uid"`
+// 	Created  time.Time `db:"created"`
+// 	Username string    `db:"username"`
+// 	Password string    `db:"password"`
+// 	Admin    bool      `db:"admin"`
+// }
 
 // SDBSetting represents the 'settings' table
 type SDBSetting struct {

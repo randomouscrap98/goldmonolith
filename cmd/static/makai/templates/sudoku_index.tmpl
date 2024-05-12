@@ -48,6 +48,7 @@
   <header>
   </header>
   <main>
+      {{if .dbexists}}
       <login-area>
           <h3>Sudoku Login</h3>
           {{if not .user.LoggedIn}}
@@ -78,6 +79,13 @@
       {{if .debug}}
       <fps-counter id="fps"></fps-counter>
       {{end}}
+      </cover-box>
+      {{end}}
+
+      {{else}}
+      <cover-box>
+      <p>Sudoku is disabled because database does not exist. System does not support
+         automatic database creation (sorry)</p>
       </cover-box>
       {{end}}
 

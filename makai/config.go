@@ -2,7 +2,6 @@ package makai
 
 import (
 	"crypto/rand"
-	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -68,10 +67,10 @@ ChatlogMaxRuntime="15s"               # Maximum amount of time to let grep run
 ChatlogMaxResult=200_000              # Max size of chatlog search result
 HeavyLimitCount=30                    # Amount of hits to the heavy limit endpoints in given interval
 HeavyLimitInterval="1m"               # Interval for the heavy limit
-SudokuDbPath="data/makai/sudoku/sudoku.db"   # Path to the sudoku database (sqlite)
+SudokuDbPath="data/makai/sudoku.db"   # Path to the sudoku database (sqlite)
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 
-func (c *Config) OpenSudokuDb() (*sql.DB, error) {
-	return sql.Open("sqlite3", fmt.Sprintf("%s?_busy_timeout=%d", c.SudokuDbPath, BusyTimeout))
-}
+// func (c *Config) OpenSudokuDb() (*sqlx.DB, error) {
+// 	return sqlx.Open("sqlite3", fmt.Sprintf("%s?_busy_timeout=%d", c.SudokuDbPath, BusyTimeout))
+// }

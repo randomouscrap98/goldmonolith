@@ -2,6 +2,7 @@ package makai
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/schema"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/randomouscrap98/goldmonolith/utils"
 )
@@ -24,6 +26,7 @@ type MakaiContext struct {
 	chatlogIncludeRegex *regexp.Regexp
 	created             time.Time
 	drawDataMu          sync.Mutex
+	sudokuDb            *sqlx.DB
 }
 
 func NewMakaiContext(config *Config) (*MakaiContext, error) {
@@ -51,6 +54,11 @@ func NewMakaiContext(config *Config) (*MakaiContext, error) {
 		return nil, err
 	}
 
+	sudokudb, err := sqlx.Open("sqlite3", fmt.Sprintf("%s?_busy_timeout=%d", config.SudokuDbPath, BusyTimeout))
+	if err != nil {
+		return nil, err
+	}
+
 	// Now we're good to go
 	return &MakaiContext{
 		config:              config,
@@ -59,6 +67,7 @@ func NewMakaiContext(config *Config) (*MakaiContext, error) {
 		drawRegex:           drawRegex,
 		chatlogIncludeRegex: chatlogIncludeRegex,
 		created:             time.Now(),
+		sudokuDb:            sudokudb,
 	}, nil
 }
 

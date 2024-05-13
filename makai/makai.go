@@ -1,7 +1,7 @@
 package makai
 
 import (
-	"fmt"
+	//"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -67,7 +67,7 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 			mctx.WebDrawManager(w, r.URL.Query())
 		})
 
-		r.Post("/sudoku/login/", func(w http.ResponseWriter, r *http.Request) {
+		/*r.Post("/sudoku/login/", func(w http.ResponseWriter, r *http.Request) {
 			var result QueryObject
 			var query SudokuLoginQuery
 			r.ParseForm()
@@ -99,7 +99,7 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 			}
 
 			utils.RespondJson(result, w, nil)
-		})
+		})*/
 
 		r.Post("/draw/manager/", func(w http.ResponseWriter, r *http.Request) {
 			err := r.ParseMultipartForm(int64(mctx.config.MaxFormMemory))

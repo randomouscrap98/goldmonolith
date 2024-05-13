@@ -66,6 +66,13 @@ func getDefaultSudokuOptions() map[string]*MySudokuOption {
 	return result
 }
 
+// Figure out whether a user exists
+func (mctx *MakaiContext) sudokuUserExists(name string) (bool, error) {
+	var count int64
+	err := mctx.sudokuDb.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", name).Scan(&count)
+	return count > 0, err
+}
+
 func (mctx *MakaiContext) RenderSudoku(subtemplate string, w http.ResponseWriter, r *http.Request) {
 	data := mctx.GetDefaultData(r)
 	data["oroot"] = mctx.config.RootPath + "/sudoku"
@@ -82,8 +89,11 @@ func (mctx *MakaiContext) RegisterSudokuUser(username string, password string) (
 	if !mctx.sudokuUsernameRegex.Match([]byte(username)) {
 		return 0, fmt.Errorf("Username malformed!")
 	}
-	existinguser, _ := mctx.GetSudokuUserByName(username)
-	if existinguser != nil {
+	exists, err := mctx.sudokuUserExists(username)
+	if err != nil {
+		return 0, err
+	}
+	if exists {
 		return 0, fmt.Errorf("Username not available!")
 	}
 	hash, err := passwordHash(password)
@@ -91,8 +101,8 @@ func (mctx *MakaiContext) RegisterSudokuUser(username string, password string) (
 		return 0, err
 	}
 	result, err := mctx.sudokuDb.Exec(
-		"INSERT INTO users(username, password, admin) VALUES (?,?,?)",
-		username, hash, false,
+		"INSERT INTO users(username, password, admin, created) VALUES (?,?,?,?)",
+		username, hash, false, time.Now(),
 	)
 	if err != nil {
 		return 0, err
@@ -100,43 +110,43 @@ func (mctx *MakaiContext) RegisterSudokuUser(username string, password string) (
 	return result.LastInsertId()
 }
 
-func (mctx *MakaiContext) GetSudokuUserById(id int64) (*SudokuUser, error) {
-	result := SudokuUser{}
+func (mctx *MakaiContext) GetSudokuUserById(id int64) (*SDBUser, error) {
+	result := SDBUser{}
 	err := mctx.sudokuDb.Get(&result, "SELECT * FROM users WHERE uid = ?", id)
 	return &result, err
 }
 
-func (mctx *MakaiContext) GetSudokuUserByName(name string) (*SudokuUser, error) {
-	result := SudokuUser{}
-	err := mctx.sudokuDb.Get(&result, "SELECT * FROM users WHERE username = ?", name)
-	return &result, err
-}
+// func (mctx *MakaiContext) GetSudokuUserByName(name string) (*SDBUser, error) {
+// 	result := SDBUser{}
+// 	err := mctx.sudokuDb.Get(&result, "SELECT * FROM users WHERE username = ?", name)
+// 	return &result, err
+// }
 
-// Fill the settings fields and stuff
-func (mctx *MakaiContext) FillSudokuUser(user *SudokuUser) error {
-  rows, err := mctx.sudokuDb.Query("SELECT * FROM settings WHERE uid = ?", user.UID)
-  if err!= nil {
-    return err
-  }
-  defer rows.Close()
-  for rows.next() {
-
-  }
-
-  settings := make([]SDBSetting, 
-  mctx.Select(
-        var initialResult = await con.QueryAsync<SDBSetting>("select * from settings where uid = @uid", new { uid = uid });
-        return initialResult.ToDictionary(x => x.name, y => JsonConvert.DeserializeObject(y.value));
-
-            result.options = DefaultOptions;
-            var options = await GetRawSettingsForUser(uid);
-
-            foreach (var option in options)
-            {
-                if(result.options.ContainsKey(option.Key))
-                    result.options[option.Key].value = option.Value;
-            }
-}
+// // Fill the settings fields and stuff
+// func (mctx *MakaiContext) FillSudokuUser(user *SudokuUser) error {
+//   rows, err := mctx.sudokuDb.Query("SELECT * FROM settings WHERE uid = ?", user.UID)
+//   if err!= nil {
+//     return err
+//   }
+//   defer rows.Close()
+//   for rows.next() {
+//
+//   }
+//
+//   settings := make([]SDBSetting,
+//   mctx.Select(
+//         var initialResult = await con.QueryAsync<SDBSetting>("select * from settings where uid = @uid", new { uid = uid });
+//         return initialResult.ToDictionary(x => x.name, y => JsonConvert.DeserializeObject(y.value));
+//
+//             result.options = DefaultOptions;
+//             var options = await GetRawSettingsForUser(uid);
+//
+//             foreach (var option in options)
+//             {
+//                 if(result.options.ContainsKey(option.Key))
+//                     result.options[option.Key].value = option.Value;
+//             }
+// }
 
 // ------------------ WEB STUFF ------------------
 
@@ -177,19 +187,19 @@ func (mctx *MakaiContext) sudokuLogin(username string, password string, w http.R
 	return queryFromResult(true)
 }
 
-func (mctx *MakaiContext) sudokuGetCurrentUser(r *http.Request) (*SudokuUser, error) {
-	cookie, err := r.Cookie(SudokuCookie)
-	if err != nil {
-		return nil, err
-	}
-	verified, err := jwt.Verify(jwt.HS256, []byte(mctx.config.SudokuSecretKey), []byte(cookie.Value))
-	if err != nil {
-		return nil, err
-	}
-	var session SudokuUserSession
-	err = verified.Claims(&session)
-	if err != nil {
-		return nil, err
-	}
-	return mctx.GetSudokuUserById(session.UserId)
-}
+// func (mctx *MakaiContext) sudokuGetCurrentUser(r *http.Request) (*SudokuUser, error) {
+// 	cookie, err := r.Cookie(SudokuCookie)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	verified, err := jwt.Verify(jwt.HS256, []byte(mctx.config.SudokuSecretKey), []byte(cookie.Value))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	var session SudokuUserSession
+// 	err = verified.Claims(&session)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return mctx.GetSudokuUserById(session.UserId)
+// }

@@ -46,3 +46,12 @@ func (e *InvalidName) Error() string {
 	}
 	return msg
 }
+
+// An error that "is to be expected", meaning we can handle it somehow
+type ExpectedError struct {
+	Message string
+}
+
+func (e *ExpectedError) Error() string {
+	return e.Message
+}

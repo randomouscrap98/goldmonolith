@@ -11,7 +11,8 @@ import (
 
 	"github.com/kataras/jwt"
 	"golang.org/x/crypto/bcrypt"
-	//"github.com/randomouscrap98/goldmonolith/utils"
+
+	"github.com/randomouscrap98/goldmonolith/utils"
 )
 
 const (
@@ -108,6 +109,48 @@ func (mctx *MakaiContext) RegisterSudokuUser(username string, password string) (
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+func (mctx *MakaiContext) LoginSudokuUser(username string, password string) (string, error) {
+	var passhash string
+	var uid int64
+	err := mctx.sudokuDb.QueryRow("SELECT password,uid FROM users WHERE username = ?", username).Scan(&passhash, &uid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", &utils.ExpectedError{Message: "User not found!"}
+			//queryFromErrors("User not found!")
+		} else {
+			//log.Printf("Error logging in (db query): %s", err)
+			return "", err //queryFromErrors("Internal server error")
+		}
+	}
+	rawhash, err := base64.StdEncoding.DecodeString(passhash)
+	if err != nil {
+		return "", err
+		//log.Printf("Error logging in (db query): %s", err)
+		//return queryFromErrors("Internal server error")
+	}
+	err = bcrypt.CompareHashAndPassword(rawhash, []byte(password))
+	if err != nil {
+		log.Printf("Error logging in (password): %s", err)
+		return "", &utils.ExpectedError{Message: "Password failure!"}
+		//return queryFromErrors("Password failure!")
+	}
+	session := SudokuUserSession{UserId: uid}
+	token, err := jwt.Sign(jwt.HS256, []byte(mctx.config.SudokuSecretKey), session, jwt.MaxAge(time.Duration(mctx.config.SudokuCookieExpire)))
+	if err != nil {
+		return "", err
+		//log.Printf("Error logging in (sign token): %s", err)
+		//return queryFromErrors("Internal server error (token)")
+	}
+	return string(token), nil
+	// Set cookie
+	// http.SetCookie(w, &http.Cookie{
+	// 	Name:   SudokuCookie,
+	// 	Value:  string(token),
+	// 	MaxAge: int(time.Duration(mctx.config.SudokuCookieExpire).Seconds()),
+	// })
+	// return queryFromResult(true)
 }
 
 func (mctx *MakaiContext) GetSudokuUserById(id int64) (*SDBUser, error) {

@@ -7,7 +7,7 @@ import (
 	"github.com/randomouscrap98/goldmonolith/utils"
 )
 
-func newSudokuUser(username string, password string, t *testing.T, ctx *MakaiContext) {
+func newSudokuUser(username string, password string, t *testing.T, ctx *MakaiContext) int64 {
 	uid, err := ctx.RegisterSudokuUser(username, password)
 	if err != nil {
 		t.Fatalf("Can't create sudoku user: %s", err)
@@ -29,9 +29,12 @@ func newSudokuUser(username string, password string, t *testing.T, ctx *MakaiCon
 	if time.Now().Sub(user.Created).Seconds() > 1 {
 		t.Fatalf("Create date not close enough: %s!", user.Created)
 	}
+	return uid
 }
 
-func TestNewSudokuUser(t *testing.T) {
+// Test MANY aspects of creating and using a sudoku user. these sudoku
+// tests are expensive, so we do as much as possible in each.
+func TestNewSudokuUser_FULL(t *testing.T) {
 	ctx := newTestContext("newsudokuuser")
 	exists, err := ctx.sudokuUserExists("heck")
 	if err != nil {
@@ -40,7 +43,7 @@ func TestNewSudokuUser(t *testing.T) {
 	if exists {
 		t.Fatalf("User was not supposed to exist yet!")
 	}
-	newSudokuUser("heck", "somepassword", t, ctx)
+	uid := newSudokuUser("heck", "somepassword", t, ctx)
 	exists, err = ctx.sudokuUserExists("heck")
 	if err != nil {
 		t.Fatalf("Error while checking if user exists: %s", err)
@@ -49,14 +52,14 @@ func TestNewSudokuUser(t *testing.T) {
 		t.Fatalf("User was supposed to exist!")
 	}
 	// Now test login, since each sudoku test is expensive (we reuse an existing file db)
-	token, err := ctx.LoginSudokuUser("heck", "somepassword")
+	goodtoken, err := ctx.LoginSudokuUser("heck", "somepassword")
 	if err != nil {
 		t.Fatalf("Error logging in user: %s", err)
 	}
-	if token == "" {
+	if goodtoken == "" {
 		t.Fatalf("Token not generated")
 	}
-	token, err = ctx.LoginSudokuUser("heck2", "somepassword")
+	_, err = ctx.LoginSudokuUser("heck2", "somepassword")
 	if err == nil {
 		t.Fatalf("Expected SOME error from non-existent user")
 	}
@@ -64,13 +67,24 @@ func TestNewSudokuUser(t *testing.T) {
 	if !ok {
 		t.Fatalf("Expected an expected error, got %s", err)
 	}
-	token, err = ctx.LoginSudokuUser("heck", "somepassword2")
+	_, err = ctx.LoginSudokuUser("heck", "somepassword2")
 	if err == nil {
 		t.Fatalf("Expected SOME error from bad password")
 	}
 	_, ok = err.(*utils.ExpectedError)
 	if !ok {
 		t.Fatalf("Expected an expected error, got %s", err)
+	}
+	// Make sure the sudoku user is what we expect
+	origuser, err := ctx.GetSudokuSession(goodtoken)
+	if err != nil {
+		t.Fatalf("Got error when decoding token: %s", err)
+	}
+	if origuser.Username != "heck" {
+		t.Fatalf("Username from session incorrect!")
+	}
+	if origuser.UID != uid {
+		t.Fatalf("UID from sesion incorrect!")
 	}
 }
 

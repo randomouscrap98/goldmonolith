@@ -44,13 +44,14 @@ func queryFromErrors(errors ...string) QueryObject {
 	}
 }
 
-// Generate a hash string from the given password.
-func passwordHash(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
+func queryFromError(err error) QueryObject {
+	_, ok := err.(*utils.ExpectedError)
+	if ok {
+		return queryFromErrors(err.Error())
+	} else {
+		log.Printf("INTERNAL SERVER ERROR: %s", err)
+		return queryFromErrors("Internal server error")
 	}
-	return base64.StdEncoding.EncodeToString(hash), nil
 }
 
 // Get all options available and their defaults
@@ -97,10 +98,11 @@ func (mctx *MakaiContext) RegisterSudokuUser(username string, password string) (
 	if exists {
 		return 0, fmt.Errorf("Username not available!")
 	}
-	hash, err := passwordHash(password)
+	hashraw, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return 0, err
 	}
+	hash := base64.StdEncoding.EncodeToString(hashraw)
 	result, err := mctx.sudokuDb.Exec(
 		"INSERT INTO users(username, password, admin, created) VALUES (?,?,?,?)",
 		username, hash, false, time.Now(),
@@ -118,39 +120,42 @@ func (mctx *MakaiContext) LoginSudokuUser(username string, password string) (str
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", &utils.ExpectedError{Message: "User not found!"}
-			//queryFromErrors("User not found!")
 		} else {
-			//log.Printf("Error logging in (db query): %s", err)
-			return "", err //queryFromErrors("Internal server error")
+			return "", err
 		}
 	}
 	rawhash, err := base64.StdEncoding.DecodeString(passhash)
 	if err != nil {
 		return "", err
-		//log.Printf("Error logging in (db query): %s", err)
-		//return queryFromErrors("Internal server error")
 	}
 	err = bcrypt.CompareHashAndPassword(rawhash, []byte(password))
 	if err != nil {
 		log.Printf("Error logging in (password): %s", err)
 		return "", &utils.ExpectedError{Message: "Password failure!"}
-		//return queryFromErrors("Password failure!")
 	}
 	session := SudokuUserSession{UserId: uid}
 	token, err := jwt.Sign(jwt.HS256, []byte(mctx.config.SudokuSecretKey), session, jwt.MaxAge(time.Duration(mctx.config.SudokuCookieExpire)))
 	if err != nil {
 		return "", err
-		//log.Printf("Error logging in (sign token): %s", err)
-		//return queryFromErrors("Internal server error (token)")
 	}
 	return string(token), nil
-	// Set cookie
-	// http.SetCookie(w, &http.Cookie{
-	// 	Name:   SudokuCookie,
-	// 	Value:  string(token),
-	// 	MaxAge: int(time.Duration(mctx.config.SudokuCookieExpire).Seconds()),
-	// })
-	// return queryFromResult(true)
+}
+
+func (mctx *MakaiContext) GetSudokuSession(token string) (*SDBUser, error) {
+	// cookie, err := r.Cookie(SudokuCookie)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	verified, err := jwt.Verify(jwt.HS256, []byte(mctx.config.SudokuSecretKey), []byte(token))
+	if err != nil {
+		return nil, err
+	}
+	var session SudokuUserSession
+	err = verified.Claims(&session)
+	if err != nil {
+		return nil, err
+	}
+	return mctx.GetSudokuUserById(session.UserId)
 }
 
 func (mctx *MakaiContext) GetSudokuUserById(id int64) (*SDBUser, error) {
@@ -192,57 +197,3 @@ func (mctx *MakaiContext) GetSudokuUserById(id int64) (*SDBUser, error) {
 // }
 
 // ------------------ WEB STUFF ------------------
-
-func (mctx *MakaiContext) sudokuLogin(username string, password string, w http.ResponseWriter) QueryObject {
-	var passhash string
-	var uid int64
-	err := mctx.sudokuDb.QueryRow("SELECT password,uid FROM users WHERE username = ?", username).Scan(&passhash, &uid)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return queryFromErrors("User not found!")
-		} else {
-			log.Printf("Error logging in (db query): %s", err)
-			return queryFromErrors("Internal server error")
-		}
-	}
-	rawhash, err := base64.StdEncoding.DecodeString(passhash)
-	if err != nil {
-		log.Printf("Error logging in (db query): %s", err)
-		return queryFromErrors("Internal server error")
-	}
-	err = bcrypt.CompareHashAndPassword(rawhash, []byte(password))
-	if err != nil {
-		log.Printf("Error logging in (password): %s", err)
-		return queryFromErrors("Password failure!")
-	}
-	session := SudokuUserSession{UserId: uid}
-	token, err := jwt.Sign(jwt.HS256, []byte(mctx.config.SudokuSecretKey), session, jwt.MaxAge(time.Duration(mctx.config.SudokuCookieExpire)))
-	if err != nil {
-		log.Printf("Error logging in (sign token): %s", err)
-		return queryFromErrors("Internal server error (token)")
-	}
-	// Set cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:   SudokuCookie,
-		Value:  string(token),
-		MaxAge: int(time.Duration(mctx.config.SudokuCookieExpire).Seconds()),
-	})
-	return queryFromResult(true)
-}
-
-// func (mctx *MakaiContext) sudokuGetCurrentUser(r *http.Request) (*SudokuUser, error) {
-// 	cookie, err := r.Cookie(SudokuCookie)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	verified, err := jwt.Verify(jwt.HS256, []byte(mctx.config.SudokuSecretKey), []byte(cookie.Value))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	var session SudokuUserSession
-// 	err = verified.Claims(&session)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return mctx.GetSudokuUserById(session.UserId)
-// }

@@ -5,7 +5,6 @@ import (
 )
 
 type MySudokuOption struct {
-	// Don't show your privates
 	Default   interface{} `json:"default"`
 	Value     interface{} `json:"value"`
 	Title     string      `json:"title"`

@@ -1,7 +1,7 @@
 package makai
 
 import (
-	//"fmt"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -67,7 +67,7 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 			mctx.WebDrawManager(w, r.URL.Query())
 		})
 
-		/*r.Post("/sudoku/login/", func(w http.ResponseWriter, r *http.Request) {
+		r.Post("/sudoku/login/", func(w http.ResponseWriter, r *http.Request) {
 			var result QueryObject
 			var query SudokuLoginQuery
 			r.ParseForm()
@@ -78,6 +78,20 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 				utils.DeleteCookie(SudokuCookie, w)
 				result = queryFromResult(true)
 			} else if query.Username != "" && query.Password != "" {
+				// Multiple codepaths must do this, so like.. whatever
+				login := func() {
+					token, err := mctx.LoginSudokuUser(query.Username, query.Password)
+					if err != nil {
+						result = queryFromError(err)
+					} else {
+						http.SetCookie(w, &http.Cookie{
+							Name:   SudokuCookie,
+							Value:  token,
+							MaxAge: int(time.Duration(mctx.config.SudokuCookieExpire).Seconds()),
+						})
+						result = queryFromResult(true)
+					}
+				}
 				if query.Password2 != "" { // User registration
 					if query.Password != query.Password2 {
 						result = queryFromErrors("Passwords don't match!")
@@ -88,18 +102,18 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 							result = queryFromErrors(fmt.Sprintf("Registration failed: %s", err))
 						} else {
 							log.Printf("Sudoku user '%s' registered (uid %d)", query.Username, id)
-							result = mctx.sudokuLogin(query.Username, query.Password, w)
+							login() // Login after successful registration
 						}
 					}
-				} else {
-					result = mctx.sudokuLogin(query.Username, query.Password, w)
+				} else { // Actual login
+					login()
 				}
 			} else {
 				result = queryFromErrors("Must provide username and password at least! Or logout!")
 			}
 
 			utils.RespondJson(result, w, nil)
-		})*/
+		})
 
 		r.Post("/draw/manager/", func(w http.ResponseWriter, r *http.Request) {
 			err := r.ParseMultipartForm(int64(mctx.config.MaxFormMemory))

@@ -201,3 +201,38 @@ func (user *SudokuUser) RefreshJsonSettings() error {
 	user.JsonOptions = string(result)
 	return nil
 }
+
+func (mctx *MakaiContext) GetPuzzlesetData(puzzleset string, uid int64) ([]QueryByPuzzleset, error) {
+	result := make([]QueryByPuzzleset, 0)
+	err := mctx.sudokuDb.Select(&result,
+		"SELECT p.pid, (c.cid IS NOT NULL) as completed, (i.ipid IS NOT NULL) as paused, c.completed as completedOn, i.paused as pausedOn "+
+			"FROM puzzles p LEFT JOIN "+
+			"completions c ON c.pid=p.pid LEFT JOIN "+
+			"inprogress i ON i.pid=p.pid "+
+			"WHERE puzzleset=? AND (c.uid=? OR c.uid IS NULL) AND "+
+			"(i.uid=? OR i.uid IS NULL) "+
+			"GROUP BY p.pid ORDER BY p.pid ",
+		puzzleset, uid, uid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	for i := range result {
+		result[i].Number = i + 1
+	}
+	return result, nil
+}
+
+func (mctx *MakaiContext) GetPuzzle(pid int64, uid int64) (*QueryByPid, error) {
+	var result QueryByPid
+	err := mctx.sudokuDb.Get(&result,
+		"SELECT p.*, COALESCE(i.puzzle,'') as playersolution, COALESCE(i.seconds,0) as seconds FROM puzzles p LEFT JOIN "+
+			"inprogress i ON p.pid=i.pid WHERE p.pid=? AND "+
+			"(i.uid=? OR i.uid IS NULL)",
+		pid, uid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}

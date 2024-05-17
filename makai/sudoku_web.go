@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 // All sudoku "wrapper" functions specifically made for the web portion of sudoku.
@@ -93,4 +94,63 @@ func (mctx *MakaiContext) GetLoggedInSudokuUser(r *http.Request) (*SudokuUser, e
 	}
 	user := rawuser.ToUser(true)
 	return &user, nil
+}
+
+func (mctx *MakaiContext) SudokuQueryWeb(r *http.Request) (string, error) {
+	uid, err := mctx.GetLoggedInSudokuUid(r)
+	if err != nil {
+		log.Printf("Error retrieving logged in sudoku user: %s", err)
+	}
+	err = r.ParseMultipartForm(int64(mctx.config.MaxFormMemory))
+	if err != nil {
+		return "", fmt.Errorf("Couldn't parse form: %s", err)
+		// result(queryFromErrors(fmt.Sprintf("Couldn't parse form: %s", err)))
+		// return
+	}
+	puzzleset := r.FormValue("puzzleset")
+	pid := r.FormValue("pid")
+	if puzzleset != "" {
+		puzzles, err := mctx.GetPuzzlesetData(puzzleset, uid)
+		if err != nil {
+			return "", fmt.Errorf("Error retrieving puzzles: %s", err)
+			// log.Printf("Error retrieving puzzles: %s", err)
+			// result(queryFromErrors(fmt.Sprintf("Error retrieving puzzles: %s", err)))
+			// return
+		}
+		puzzleresult, err := json.Marshal(puzzles)
+		if err != nil {
+			return "", fmt.Errorf("Error jsoning puzzles: %s", err)
+			// log.Printf("Error jsoning puzzles: %s", err)
+			// result(queryFromErrors(fmt.Sprintf("Error jsoning puzzles: %s", err)))
+			// return
+		}
+		return string(puzzleresult), nil
+		//result(queryFromResult(puzzleresult))
+	} else if pid != "" {
+		pidint, err := strconv.ParseInt(pid, 10, 64)
+		if err != nil {
+			return "", err
+			// result(queryFromErrors("Invalid pid"))
+			// return
+		}
+		puzzle, err := mctx.GetPuzzle(pidint, uid)
+		if err != nil {
+			return "", fmt.Errorf("Error retrieving puzzle: %s", err)
+			//log.Printf("Error retrieving puzzle: %s", err)
+			//result(queryFromErrors(fmt.Sprintf("Error retrieving puzzle: %s", err)))
+			//return
+		}
+		puzzleresult, err := json.Marshal(puzzle)
+		if err != nil {
+			return "", fmt.Errorf("Error jsoning puzzle: %s", err)
+			// log.Printf("Error jsoning puzzle: %s", err)
+			// result(queryFromErrors(fmt.Sprintf("Error jsoning puzzle: %s", err)))
+			// return
+		}
+		return string(puzzleresult), nil
+		//result(queryFromResult(puzzleresult))
+	} else {
+		return "", fmt.Errorf("You must provider EITHER pid OR puzzleset!")
+		//result(queryFromErrors("You must provide EITHER pid OR puzzleset!"))
+	}
 }

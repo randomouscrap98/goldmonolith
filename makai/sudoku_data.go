@@ -34,23 +34,23 @@ type QueryObject struct {
 }
 
 type QueryByPuzzleset struct {
-	Number      int       `json:"number"`
-	Pid         int       `json:"pid"`
-	Completed   bool      `json:"completed"`
-	Paused      bool      `json:"paused"`
-	CompletedOn time.Time `json:"completedOn"`
-	PausedOn    time.Time `json:"pausedOn"`
+	Number      int        `json:"number" db:"number"`
+	Pid         int        `json:"pid" db:"pid"`
+	Completed   bool       `json:"completed" db:"completed"`
+	Paused      bool       `json:"paused" db:"paused"`
+	CompletedOn *time.Time `json:"completedOn" db:"completedOn"`
+	PausedOn    *time.Time `json:"pausedOn" db:"pausedOn"`
 }
 
 type QueryByPid struct { // this was derived from SDBPuzzle for some reason...
-	PlayerSolution string `json:"playersolution"`
-	Seconds        int    `json:"seconds"`
-	Pid            int    `json:"pid"`
-	Uid            int    `json:"uid"`
-	Solution       string `json:"solution"`
-	Puzzle         string `json:"puzzle"`
-	PuzzleSet      string `json:"puzzleset"`
-	Public         bool   `json:"public"`
+	PlayerSolution string `json:"playersolution" db:"playersolution"`
+	Seconds        int    `json:"seconds" db:"seconds"`
+	Pid            int    `json:"pid" db:"pid"`
+	Uid            int    `json:"uid" db:"uid"`
+	Solution       string `json:"solution" db:"solution"`
+	Puzzle         string `json:"puzzle" db:"puzzle"`
+	PuzzleSet      string `json:"puzzleset" db:"puzzleset"`
+	Public         bool   `json:"public" db:"public"`
 }
 
 type SudokuUser struct {

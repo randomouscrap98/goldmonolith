@@ -55,6 +55,15 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 		mctx.RenderSudoku("convert", w, r)
 	})
 
+	r.Post("/sudoku/sudokuquery", func(w http.ResponseWriter, r *http.Request) {
+		result, err := mctx.SudokuQueryWeb(r)
+		if err != nil {
+			utils.RespondJson(queryFromError(err), w, nil)
+		} else {
+			utils.RespondJson(queryFromResult(result), w, nil)
+		}
+	})
+
 	// These are endpoints which have a heavy limiter set
 	r.Group(func(r chi.Router) {
 		r.Use(httprate.LimitByIP(mctx.config.HeavyLimitCount, time.Duration(mctx.config.HeavyLimitInterval)))

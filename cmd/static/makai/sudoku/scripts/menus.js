@@ -111,25 +111,33 @@ function makeOptionsMenu()
 
 function saveOptions(e)
 {
-   var i;
-   var data = new FormData();
-   var inputs = document.querySelectorAll("[data-option] input");
-   var selects = document.querySelectorAll("[data-option] select");
+  var i;
+  var data = new FormData();
+  var inputs = document.querySelectorAll("[data-option] input");
+  var selects = document.querySelectorAll("[data-option] select");
 
-   for(i = 0; i < inputs.length; i++)
-   {
-      var value = inputs[i].value;
+  // New 2024 rewrite: we've made settings just a json. It's easier for these
+  // lower level languages to work with concrete types
+  var theseSettings = {};
 
-      if(inputs[i].getAttribute("type") === "checkbox")
-         value = inputs[i].checked;
+  for(i = 0; i < inputs.length; i++)
+  {
+    var value = inputs[i].value;
 
-      data.append(inputs[i].getAttribute("name"), JSON.stringify(value));
-   }
+    if(inputs[i].getAttribute("type") === "checkbox")
+      value = inputs[i].checked;
 
-   for(i = 0; i < selects.length; i++)
-      data.append(selects[i].getAttribute("name"), JSON.stringify(selects[i].value));
+    theseSettings[inputs[i].getAttribute("name")] = value;
+    //data.append(inputs[i].getAttribute("name"), JSON.stringify(value));
+  }
 
-   fullGenericXHR(rootURL + "settingsave", data, e.target, reloadSuccess);
+  for(i = 0; i < selects.length; i++)
+    theseSettings[selects[i].getAttribute("name")] = selects[i].value;
+    //data.append(selects[i].getAttribute("name"), JSON.stringify(selects[i].value));
+
+  data.append("settings", JSON.stringify(theseSettings));
+
+  fullGenericXHR(rootURL + "settingsave", data, e.target, reloadSuccess);
 }
 
 function makePlayMenu()

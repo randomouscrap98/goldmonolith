@@ -67,6 +67,40 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 			mctx.WebDrawManager(w, r.URL.Query())
 		})
 
+		r.Post("/sudoku/settingsave", func(w http.ResponseWriter, r *http.Request) {
+			result := func(result QueryObject) {
+				utils.RespondJson(result, w, nil)
+			}
+			// Before doing anything, might as well make sure they're logged in...
+			uid, err := mctx.GetLoggedInSudokuUid(r)
+			if err != nil || uid <= 0 {
+				if err != nil {
+					log.Printf("Error retrieving logged in sudoku user: %s", err)
+				}
+				result(queryFromErrors("Must be logged in to set settings!"))
+				return
+			}
+			err = r.ParseMultipartForm(int64(mctx.config.MaxFormMemory))
+			if err != nil {
+				result(queryFromErrors(fmt.Sprintf("Couldn't parse form: %s", err)))
+				return
+			}
+			settingsraw := r.FormValue("settings")
+			if settingsraw == "" {
+				result(queryFromErrors("Empty settings"))
+				return
+			}
+			// Don't even need to parse the settings, just update directly. Whatever
+			// the user wants... even if it messes up their user? Hm...
+			err = mctx.UpdateUserSettings(uid, settingsraw)
+			if err != nil {
+				result(queryFromErrors(fmt.Sprintf("Couldn't update settings: %s", err)))
+				return
+			}
+			log.Printf("Sudoku user '%d' updated settings", uid)
+			result(queryFromResult(true))
+		})
+
 		r.Post("/sudoku/login", func(w http.ResponseWriter, r *http.Request) {
 			var query SudokuLoginQuery
 			result := func(result QueryObject) {
@@ -123,10 +157,6 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 				result(queryFromErrors("Must provide username and password at least! Or logout!"))
 				return
 			}
-
-			// log.Printf("Query: %v", query)
-			// log.Printf("Login result: %v", result)
-			// utils.RespondJson(result, w, nil)
 		})
 
 		r.Post("/draw/manager/", func(w http.ResponseWriter, r *http.Request) {

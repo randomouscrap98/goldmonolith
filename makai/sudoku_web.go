@@ -64,21 +64,33 @@ func (mctx *MakaiContext) GetJsonPuzzleSetsForUser(user *SudokuUser) (string, er
 	return string(puzzlesjson), nil
 }
 
-// Using the request + cookie + whatever, get the fully filled out current sudoku user.
-// Immediately usable in rendering and whatever else you want.
-func (mctx *MakaiContext) GetLoggedInSudokuUser(r *http.Request) (*SudokuUser, error) {
+func (mctx *MakaiContext) GetLoggedInSudokuUid(r *http.Request) (int64, error) {
 	cookie, err := r.Cookie(SudokuCookie)
 	if err != nil {
 		if err == http.ErrNoCookie {
-			return nil, nil
+			return -1, nil
 		} else {
-			return nil, err
+			return 0, err
 		}
 	}
-	rawuser, err := mctx.GetSudokuSession(cookie.Value)
+	session, err := mctx.GetSudokuSession(cookie.Value)
+	if err != nil {
+		return 0, err
+	}
+	return session.UserId, nil
+}
+
+// Using the request + cookie + whatever, get the fully filled out current sudoku user.
+// Immediately usable in rendering and whatever else you want.
+func (mctx *MakaiContext) GetLoggedInSudokuUser(r *http.Request) (*SudokuUser, error) {
+	uid, err := mctx.GetLoggedInSudokuUid(r)
 	if err != nil {
 		return nil, err
 	}
-	user, err := rawuser.ToUser(true)
-	return &user, err
+	rawuser, err := mctx.GetSudokuUserById(uid)
+	if err != nil {
+		return nil, err
+	}
+	user := rawuser.ToUser(true)
+	return &user, nil
 }

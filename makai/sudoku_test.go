@@ -77,9 +77,16 @@ func TestNewSudokuUser_FULL(t *testing.T) {
 		t.Fatalf("Expected an expected error, got %s", err)
 	}
 	// Make sure the sudoku user is what we expect
-	origuser, err := ctx.GetSudokuSession(goodtoken)
+	session, err := ctx.GetSudokuSession(goodtoken)
 	if err != nil {
 		t.Fatalf("Got error when decoding token: %s", err)
+	}
+	if session.UserId != uid {
+		t.Fatalf("UID from sesion incorrect!")
+	}
+	origuser, err := ctx.GetSudokuUserById(session.UserId)
+	if err != nil {
+		t.Fatalf("Got error when looking up user from session: %s", err)
 	}
 	if origuser.Username != "heck" {
 		t.Fatalf("Username from session incorrect!")
@@ -88,10 +95,7 @@ func TestNewSudokuUser_FULL(t *testing.T) {
 		t.Fatalf("UID from sesion incorrect!")
 	}
 	// Now we test conversion, this is very important!!
-	fulluser, err := origuser.ToUser(true)
-	if err != nil {
-		t.Fatalf("Error converting user: %s", err)
-	}
+	fulluser := origuser.ToUser(true)
 	if fulluser.Username != origuser.Username {
 		t.Fatalf("Usernames didn't match: %s vs %s", fulluser.Username, origuser.Username)
 	}

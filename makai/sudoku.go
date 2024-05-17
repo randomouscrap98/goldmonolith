@@ -127,7 +127,7 @@ func (mctx *MakaiContext) LoginSudokuUser(username string, password string) (str
 	return string(token), nil
 }
 
-func (mctx *MakaiContext) GetSudokuSession(token string) (*SDBUser, error) {
+func (mctx *MakaiContext) GetSudokuSession(token string) (*SudokuUserSession, error) {
 	//log.Printf("JWT Token to decode: %s", token)
 	verified, err := jwt.Verify(jwt.HS256, []byte(mctx.config.SudokuSecretKey), []byte(token))
 	if err != nil {
@@ -138,7 +138,8 @@ func (mctx *MakaiContext) GetSudokuSession(token string) (*SDBUser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return mctx.GetSudokuUserById(session.UserId)
+	return &session, nil
+	//return mctx.GetSudokuUserById(session.UserId)
 }
 
 func (mctx *MakaiContext) GetSudokuUserById(id int64) (*SDBUser, error) {
@@ -155,14 +156,13 @@ func (mctx *MakaiContext) GetPuzzleSets(uid int64) ([]PuzzleSetAggregate, error)
 	return result, err
 }
 
-// private Task<IEnumerable<PuzzleSetAggregate>> GetPuzzleSets(int uid) => SimpleDbTask(con =>
-//     con.QueryAsync<PuzzleSetAggregate>(
-//         "select puzzleset, uid, public, count(*) as count from puzzles where uid = @uid or public=1 group by puzzleset",
-//         new {uid = uid})
-// );
+func (mctx *MakaiContext) UpdateUserSettings(uid int64, settings string) error {
+	_, err := mctx.sudokuDb.Exec("UPDATE users SET settings = ? WHERE uid = ?", settings, uid)
+	return err
+}
 
 // Convert a sudoku db user to a returnable sudoku user.
-func (user *SDBUser) ToUser(loggedin bool) (SudokuUser, error) {
+func (user *SDBUser) ToUser(loggedin bool) SudokuUser {
 	result := SudokuUser{
 		Uid:      user.UID,
 		Username: user.Username,
@@ -174,20 +174,23 @@ func (user *SDBUser) ToUser(loggedin bool) (SudokuUser, error) {
 	rawSettings := make(map[string]any)
 	err := json.Unmarshal([]byte(user.SettingsJson), &rawSettings)
 	if err != nil {
-		return result, err
-	}
-	for k, v := range rawSettings {
-		dv, ok := result.Options[k]
-		if ok {
-			dv.Value = v
-		} else {
-			log.Printf("WARN: found unknown setting %s", k)
+		// This skips user settings errors. So a user can't "brick" themselves
+		// if they send some garbage as settings; everything will just become default.
+		log.Printf("Bad user settings for '%s': %s", user.Username, err)
+	} else {
+		for k, v := range rawSettings {
+			dv, ok := result.Options[k]
+			if ok {
+				dv.Value = v
+			} else {
+				log.Printf("WARN: found unknown setting %s", k)
+			}
 		}
 	}
 	// Now that the values are all set, try to set the json options. Note that
 	// if the settings change, you will NEED to refresh this!!
 	result.RefreshJsonSettings()
-	return result, nil
+	return result
 }
 
 func (user *SudokuUser) RefreshJsonSettings() error {
@@ -198,37 +201,3 @@ func (user *SudokuUser) RefreshJsonSettings() error {
 	user.JsonOptions = string(result)
 	return nil
 }
-
-// func (mctx *MakaiContext) GetSudokuUserByName(name string) (*SDBUser, error) {
-// 	result := SDBUser{}
-// 	err := mctx.sudokuDb.Get(&result, "SELECT * FROM users WHERE username = ?", name)
-// 	return &result, err
-// }
-
-// // Fill the settings fields and stuff
-// func (mctx *MakaiContext) FillSudokuUser(user *SudokuUser) error {
-//   rows, err := mctx.sudokuDb.Query("SELECT * FROM settings WHERE uid = ?", user.UID)
-//   if err!= nil {
-//     return err
-//   }
-//   defer rows.Close()
-//   for rows.next() {
-//
-//   }
-//
-//   settings := make([]SDBSetting,
-//   mctx.Select(
-//         var initialResult = await con.QueryAsync<SDBSetting>("select * from settings where uid = @uid", new { uid = uid });
-//         return initialResult.ToDictionary(x => x.name, y => JsonConvert.DeserializeObject(y.value));
-//
-//             result.options = DefaultOptions;
-//             var options = await GetRawSettingsForUser(uid);
-//
-//             foreach (var option in options)
-//             {
-//                 if(result.options.ContainsKey(option.Key))
-//                     result.options[option.Key].value = option.Value;
-//             }
-// }
-
-// ------------------ WEB STUFF ------------------

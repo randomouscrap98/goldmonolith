@@ -4,6 +4,12 @@ import (
 	"time"
 )
 
+// ONLY the basic data objects that make up sudoku.
+
+type SudokuUserSession struct {
+	UserId int64 `json:"uid"`
+}
+
 type MySudokuOption struct {
 	Default   interface{} `json:"default"`
 	Value     interface{} `json:"value"`
@@ -11,20 +17,11 @@ type MySudokuOption struct {
 	Possibles []string    `json:"possibles"`
 }
 
-func newMySudokuOption(Default interface{}, Title string, Possibles []string) *MySudokuOption {
-	return &MySudokuOption{
-		Default:   Default,
-		Value:     Default,
-		Title:     Title,
-		Possibles: Possibles,
-	}
-}
-
 type PuzzleSetAggregate struct {
-	PuzzleSet string `json:"puzzleset"`
-	UID       int    `json:"uid"`
-	Count     int    `json:"count"`
-	Public    bool   `json:"public"`
+	PuzzleSet string `json:"puzzleset" db:"puzzleset"`
+	UID       int    `json:"uid" db:"uid"`
+	Count     int    `json:"count" db:"count"`
+	Public    bool   `json:"public" db:"public"`
 }
 
 type QueryObject struct {
@@ -58,11 +55,11 @@ type QueryByPid struct { // this was derived from SDBPuzzle for some reason...
 
 type SudokuUser struct {
 	// Normal fields
-	Username string                    `json:"username"`
-	Uid      int                       `json:"uid"`
-	Admin    bool                      `json:"admin"`
-	LoggedIn bool                      `json:"loggedIn"`
-	Options  map[string]MySudokuOption `json:"-"`
+	Username string                     `json:"username"`
+	Uid      int64                      `json:"uid"`
+	Admin    bool                       `json:"admin"`
+	LoggedIn bool                       `json:"loggedIn"`
+	Options  map[string]*MySudokuOption `json:"-"`
 
 	// Special field
 	JsonOptions string `json:"-"`

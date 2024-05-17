@@ -67,52 +67,66 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 			mctx.WebDrawManager(w, r.URL.Query())
 		})
 
-		r.Post("/sudoku/login/", func(w http.ResponseWriter, r *http.Request) {
-			var result QueryObject
+		r.Post("/sudoku/login", func(w http.ResponseWriter, r *http.Request) {
 			var query SudokuLoginQuery
-			r.ParseForm()
-			err := mctx.decoder.Decode(&query, r.Form)
-			if err != nil {
-				result = queryFromErrors(fmt.Sprintf("Couldn't parse form: %s", err))
-			} else if query.Logout {
-				utils.DeleteCookie(SudokuCookie, w)
-				result = queryFromResult(true)
-			} else if query.Username != "" && query.Password != "" {
-				// Multiple codepaths must do this, so like.. whatever
-				login := func() {
-					token, err := mctx.LoginSudokuUser(query.Username, query.Password)
-					if err != nil {
-						result = queryFromError(err)
-					} else {
-						http.SetCookie(w, &http.Cookie{
-							Name:   SudokuCookie,
-							Value:  token,
-							MaxAge: int(time.Duration(mctx.config.SudokuCookieExpire).Seconds()),
-						})
-						result = queryFromResult(true)
-					}
+			result := func(result QueryObject) {
+				//log.Printf("Query: %v", query)
+				//log.Printf("Login result: %v", result)
+				utils.RespondJson(result, w, nil)
+			}
+			// Multiple codepaths must do this, so like.. whatever
+			login := func() {
+				token, err := mctx.LoginSudokuUser(query.Username, query.Password)
+				if err != nil {
+					result(queryFromError(err))
+				} else {
+					http.SetCookie(w, &http.Cookie{
+						Name:   SudokuCookie,
+						Value:  token,
+						MaxAge: int(time.Duration(mctx.config.SudokuCookieExpire).Seconds()),
+					})
+					result(queryFromResult(true))
 				}
+			}
+			err := r.ParseMultipartForm(int64(mctx.config.MaxFormMemory))
+			if err != nil {
+				result(queryFromErrors(fmt.Sprintf("Couldn't parse form: %s", err)))
+				return
+			}
+			err = mctx.decoder.Decode(&query, r.PostForm)
+			if err != nil {
+				result(queryFromErrors(fmt.Sprintf("Couldn't parse form: %s", err)))
+				return
+			}
+			if query.Logout {
+				utils.DeleteCookie(SudokuCookie, w)
+				result(queryFromResult(true))
+				return
+			} else if query.Username != "" && query.Password != "" {
 				if query.Password2 != "" { // User registration
 					if query.Password != query.Password2 {
-						result = queryFromErrors("Passwords don't match!")
-					} else {
-						id, err := mctx.RegisterSudokuUser(query.Username, query.Password)
-						if err != nil {
-							log.Printf("User registration failed: %s", err)
-							result = queryFromErrors(fmt.Sprintf("Registration failed: %s", err))
-						} else {
-							log.Printf("Sudoku user '%s' registered (uid %d)", query.Username, id)
-							login() // Login after successful registration
-						}
+						result(queryFromErrors("Passwords don't match!"))
+						return
 					}
+					id, err := mctx.RegisterSudokuUser(query.Username, query.Password)
+					if err != nil {
+						log.Printf("User registration failed: %s", err)
+						result(queryFromErrors(fmt.Sprintf("Registration failed: %s", err)))
+						return
+					}
+					log.Printf("Sudoku user '%s' registered (uid %d)", query.Username, id)
+					login() // Login after successful registration
 				} else { // Actual login
 					login()
 				}
 			} else {
-				result = queryFromErrors("Must provide username and password at least! Or logout!")
+				result(queryFromErrors("Must provide username and password at least! Or logout!"))
+				return
 			}
 
-			utils.RespondJson(result, w, nil)
+			// log.Printf("Query: %v", query)
+			// log.Printf("Login result: %v", result)
+			// utils.RespondJson(result, w, nil)
 		})
 
 		r.Post("/draw/manager/", func(w http.ResponseWriter, r *http.Request) {

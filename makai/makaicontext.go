@@ -64,11 +64,14 @@ func NewMakaiContext(config *Config) (*MakaiContext, error) {
 		return nil, err
 	}
 
+	decoder := schema.NewDecoder()
+	decoder.IgnoreUnknownKeys(true)
+
 	// Now we're good to go
 	return &MakaiContext{
 		config:              config,
 		templates:           templates,
-		decoder:             schema.NewDecoder(),
+		decoder:             decoder,
 		drawRegex:           drawRegex,
 		sudokuUsernameRegex: sudokuUsernameRegex,
 		chatlogIncludeRegex: chatlogIncludeRegex,

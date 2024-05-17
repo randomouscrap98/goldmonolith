@@ -21,7 +21,8 @@
   <link rel="stylesheet" href="{{.oroot}}/styles/main.css?{{.cachebust}}">
 
   <script>
-  var rootURL = "{{RawUrl .oroot}}";
+  // NOTE: the scripts expect the url to have the forward slash, which we don't do anymore
+  var rootURL = "{{RawUrl .oroot}}/";
   </script>
 
   <!--Scripts-->

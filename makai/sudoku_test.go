@@ -1,6 +1,7 @@
 package makai
 
 import (
+	"log"
 	"testing"
 	"time"
 
@@ -86,6 +87,25 @@ func TestNewSudokuUser_FULL(t *testing.T) {
 	if origuser.UID != uid {
 		t.Fatalf("UID from sesion incorrect!")
 	}
+	// Now we test conversion, this is very important!!
+	fulluser, err := origuser.ToUser(true)
+	if err != nil {
+		t.Fatalf("Error converting user: %s", err)
+	}
+	if fulluser.Username != origuser.Username {
+		t.Fatalf("Usernames didn't match: %s vs %s", fulluser.Username, origuser.Username)
+	}
+	if fulluser.Uid != origuser.UID {
+		t.Fatalf("UIDS didn't match: %d vs %d", fulluser.Uid, origuser.UID)
+	}
+	defoptions := getDefaultSudokuOptions()
+	if len(fulluser.Options) != len(defoptions) {
+		t.Fatalf("Didn't have all options from defaults: %v", fulluser.Options)
+	}
+	if len(fulluser.JsonOptions) == 0 {
+		t.Fatalf("Didn't set json options")
+	}
+	log.Printf("Sudoku user options json: %s", fulluser.JsonOptions)
 }
 
 // import (

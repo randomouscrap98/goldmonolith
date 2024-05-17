@@ -3,10 +3,9 @@ package makai
 import (
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
-	"os"
 	"time"
 
 	"github.com/kataras/jwt"
@@ -14,21 +13,6 @@ import (
 
 	"github.com/randomouscrap98/goldmonolith/utils"
 )
-
-const (
-	SudokuCookie = "makai_sudoku_session"
-)
-
-type SudokuLoginQuery struct {
-	Username  string `schema:"username"`
-	Password  string `schema:"password"`
-	Password2 string `schema:"password2"`
-	Logout    bool   `schema:"logout"`
-}
-
-type SudokuUserSession struct {
-	UserId int64 `json:"uid"`
-}
 
 func queryFromResult(result any) QueryObject {
 	return QueryObject{
@@ -41,6 +25,7 @@ func queryFromErrors(errors ...string) QueryObject {
 	return QueryObject{
 		QueryOK: false,
 		Errors:  errors,
+		Result:  false,
 	}
 }
 
@@ -51,6 +36,18 @@ func queryFromError(err error) QueryObject {
 	} else {
 		log.Printf("INTERNAL SERVER ERROR: %s", err)
 		return queryFromErrors("Internal server error")
+	}
+}
+
+func newMySudokuOption(Default interface{}, Title string, Possibles []string) *MySudokuOption {
+	if Possibles == nil {
+		Possibles = make([]string, 0)
+	}
+	return &MySudokuOption{
+		Default:   Default,
+		Value:     Default,
+		Title:     Title,
+		Possibles: Possibles,
 	}
 }
 
@@ -73,17 +70,6 @@ func (mctx *MakaiContext) sudokuUserExists(name string) (bool, error) {
 	var count int64
 	err := mctx.sudokuDb.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", name).Scan(&count)
 	return count > 0, err
-}
-
-func (mctx *MakaiContext) RenderSudoku(subtemplate string, w http.ResponseWriter, r *http.Request) {
-	data := mctx.GetDefaultData(r)
-	data["oroot"] = mctx.config.RootPath + "/sudoku"
-	data["template_"+subtemplate] = true
-	data["debug"] = r.URL.Query().Has("debug")
-	data["puzzleSets"] = "" // Some serialized thing...
-	_, err := os.Stat(mctx.config.SudokuDbPath)
-	data["dbexists"] = err == nil
-	mctx.RunTemplate("sudoku_index.tmpl", w, data)
 }
 
 // Add sudoku user. checks if username exists, etc.
@@ -142,10 +128,7 @@ func (mctx *MakaiContext) LoginSudokuUser(username string, password string) (str
 }
 
 func (mctx *MakaiContext) GetSudokuSession(token string) (*SDBUser, error) {
-	// cookie, err := r.Cookie(SudokuCookie)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	//log.Printf("JWT Token to decode: %s", token)
 	verified, err := jwt.Verify(jwt.HS256, []byte(mctx.config.SudokuSecretKey), []byte(token))
 	if err != nil {
 		return nil, err
@@ -162,6 +145,58 @@ func (mctx *MakaiContext) GetSudokuUserById(id int64) (*SDBUser, error) {
 	result := SDBUser{}
 	err := mctx.sudokuDb.Get(&result, "SELECT * FROM users WHERE uid = ?", id)
 	return &result, err
+}
+
+func (mctx *MakaiContext) GetPuzzleSets(uid int64) ([]PuzzleSetAggregate, error) {
+	result := make([]PuzzleSetAggregate, 0)
+	err := mctx.sudokuDb.Select(&result,
+		"select puzzleset, uid, public, count(*) as count from puzzles where uid = ? or public=1 group by puzzleset",
+		uid)
+	return result, err
+}
+
+// private Task<IEnumerable<PuzzleSetAggregate>> GetPuzzleSets(int uid) => SimpleDbTask(con =>
+//     con.QueryAsync<PuzzleSetAggregate>(
+//         "select puzzleset, uid, public, count(*) as count from puzzles where uid = @uid or public=1 group by puzzleset",
+//         new {uid = uid})
+// );
+
+// Convert a sudoku db user to a returnable sudoku user.
+func (user *SDBUser) ToUser(loggedin bool) (SudokuUser, error) {
+	result := SudokuUser{
+		Uid:      user.UID,
+		Username: user.Username,
+		Admin:    user.Admin,
+		Exists:   true,
+		LoggedIn: loggedin,
+		Options:  getDefaultSudokuOptions(),
+	}
+	rawSettings := make(map[string]any)
+	err := json.Unmarshal([]byte(user.SettingsJson), &rawSettings)
+	if err != nil {
+		return result, err
+	}
+	for k, v := range rawSettings {
+		dv, ok := result.Options[k]
+		if ok {
+			dv.Value = v
+		} else {
+			log.Printf("WARN: found unknown setting %s", k)
+		}
+	}
+	// Now that the values are all set, try to set the json options. Note that
+	// if the settings change, you will NEED to refresh this!!
+	result.RefreshJsonSettings()
+	return result, nil
+}
+
+func (user *SudokuUser) RefreshJsonSettings() error {
+	result, err := json.Marshal(user.Options)
+	if err != nil {
+		return err
+	}
+	user.JsonOptions = string(result)
+	return nil
 }
 
 // func (mctx *MakaiContext) GetSudokuUserByName(name string) (*SDBUser, error) {

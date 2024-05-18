@@ -145,6 +145,7 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			iquery.IntoData(data)
 			// Note: we used to have "hideuploads", we don't use that anymore, but just in case...
 			data["hideuploads"] = false
+			data["challengetext"] = kctx.config.ChallengeText
 
 			var thread *Thread
 			getByField := func(name string, value string) bool {
@@ -257,6 +258,10 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 			r.Body = http.MaxBytesReader(w, r.Body, int64(kctx.config.MaxImageSize))
 			if r.FormValue("url") != "" {
 				http.Error(w, "Admin tasks not currently reimplemented (url upload)", http.StatusTeapot)
+				return
+			}
+			if kctx.config.ChallengeResponse != "" && r.FormValue("challenge") != kctx.config.ChallengeResponse {
+				http.Error(w, "Failed challenge question", http.StatusBadRequest)
 				return
 			}
 			db, err := kctx.config.OpenDb()

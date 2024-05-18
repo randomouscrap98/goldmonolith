@@ -41,6 +41,8 @@ type Config struct {
 	HashBaseChars       int            // Initial size of the random name
 	HashIncreaseRetries int            // How many times to repeat before trying an increase in name length
 	RehashTag           string         // Change to a new tag to rehash every image (empty for no rehash)
+	ChallengeText       string         // Optional question to ask on upload
+	ChallengeResponse   string         // Optional answer that must be provided for image upload
 }
 
 func GetDefaultConfig_Toml() string {
@@ -75,6 +77,8 @@ HashIncreaseRetries=100               # How many times to repeat before trying a
 RehashTag=""                          # Change to a new tag to rehash every image (empty for no rehash)
 # NOTE FOR ABOVE: the RehashTag should ONLY BE SET ONCE to perform the rehash on startup. After
 # that, you will want to TURN OFF the rehash tag!
+ChallengeText=""                      # Optional question to ask on upload
+ChallengeResponse=""                  # Optional answer that must be provided for image upload
 `, time.Now().Format(time.RFC3339), randomHex)
 }
 

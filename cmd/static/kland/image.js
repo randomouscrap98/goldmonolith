@@ -154,6 +154,8 @@ function clipboardDataUpload(event, bucket)
    }
 }
 
+// UPDATE 2024: This function was modified to take the challenge question off the
+// form, even though the function isn't supposed to work like that
 function uploadBlob(blob, bucket, name)
 {
   if (!blob) {
@@ -165,10 +167,18 @@ function uploadBlob(blob, bucket, name)
    var data = new FormData();
    data.append("image", blob, name || "blob.png");
    if(bucket) data.append("bucket", bucket);
+   if(uploadform_challenge.value) data.append("challenge", uploadform_challenge.value);
 
    var xhr = new XMLHttpRequest();
    xhr.open("POST", SERVERROOT + "/uploadimage", true);
-   xhr.onload = function() { location.href = xhr.response; };
+   xhr.onload = function() { 
+    if (xhr.status == 200) {
+      location.href = xhr.response; 
+    }
+    else {
+      alert("Unknown response: " + xhr.responseText);
+    }
+   };
    xhr.send(data);
 }
 

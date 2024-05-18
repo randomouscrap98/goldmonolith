@@ -35,6 +35,9 @@
         class="postform specialblock">
         <input type="hidden" name="redirect" value="1">
         <input type="file" name="image" accept="image/*">
+        {{if .challengetext}}
+        <input type="text" name="challenge" autocomplete="klandchallenge" placeholder="{{.challengetext}}" id="uploadform_challenge">
+        {{end}}
         {{if .isAdmin}}
         <input type="text" name="url" placeholder="OR specify a URL (file overrides it)">
         {{end}}

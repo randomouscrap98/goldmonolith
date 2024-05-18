@@ -1,6 +1,7 @@
 package makai
 
 import (
+	"encoding/json"
 	"log"
 	"strings"
 	"testing"
@@ -179,5 +180,86 @@ func TestRetrieveData(t *testing.T) {
 	}
 	if puzzle.Seconds != 0 {
 		t.Fatalf("Expected 0 seconds on new puzzle, got %d", puzzle.Seconds)
+	}
+}
+
+func TestSudokuProgress(t *testing.T) {
+	const PuzzleSetName = "Medium Pack 1"
+	ctx := newTestContext("sudokuprogress")
+	// Need a user for this test
+	uid := newSudokuUser("someuser", "garbage", t, ctx)
+	// Need to find SOME puzzle to work with (need valid pid)
+	puzzleset, err := ctx.GetPuzzlesetData(PuzzleSetName, -1)
+	if err != nil {
+		t.Fatalf("Couldn't pull puzzleset data: %s", err)
+	}
+	puzzle, err := ctx.GetPuzzle(puzzleset[0].Pid, uid)
+	if err != nil {
+		t.Fatalf("Couldn't pull puzzle data: %s", err)
+	}
+	// Now, let's run through a normal scenario. Let's save some progress.
+	data := SudokuSaveData{Puzzle: "this is not a puzzle"}
+	jdata, err := json.Marshal(data)
+	if err != nil {
+		t.Fatalf("Couldn't create json: %s", err)
+	}
+	solved, err := ctx.UpdateSudokuProgress(puzzle.Pid, uid, string(jdata), 55)
+	if err != nil {
+		t.Fatalf("Couldn't update sudoku progress: %s", err)
+	}
+	if solved {
+		t.Fatalf("Not supposed to be solved yet!")
+	}
+	// Go get the puzzle data again
+	puzzle2, err := ctx.GetPuzzle(puzzle.Pid, uid)
+	if puzzle2.PlayerSolution != string(jdata) {
+		t.Fatalf("Progress not saved: %s vs %s", puzzle2.PlayerSolution, string(jdata))
+	}
+	if puzzle2.Seconds != 55 {
+		t.Fatalf("Expected 55 seconds on pause, got %d", puzzle2.Seconds)
+	}
+	puzzleset2, err := ctx.GetPuzzlesetData(PuzzleSetName, uid)
+	if err != nil {
+		t.Fatalf("Couldn't pull puzzleset data: %s", err)
+	}
+	if !puzzleset2[0].Paused {
+		t.Fatalf("Puzzle was supposed to be paused!")
+	}
+	if time.Now().Sub(*puzzleset2[0].PausedOn).Seconds() > 5 {
+		t.Fatalf("Paused time not set correctly!")
+	}
+	if puzzleset2[0].Completed {
+		t.Fatalf("Not supposed to be completed yet!")
+	}
+	// Update the puzzle with the solution. It should be solved now!
+	data.Puzzle = puzzle.Solution
+	jdata, err = json.Marshal(data)
+	if err != nil {
+		t.Fatalf("Couldn't create json: %s", err)
+	}
+	solved, err = ctx.UpdateSudokuProgress(puzzle.Pid, uid, string(jdata), 108)
+	if err != nil {
+		t.Fatalf("Couldn't update sudoku progress: %s", err)
+	}
+	if !solved {
+		t.Fatalf("Supposed to be solved!")
+	}
+	puzzle3, err := ctx.GetPuzzle(puzzle.Pid, uid)
+	if puzzle3.PlayerSolution != "" { //string(jdata) {
+		t.Fatalf("Progress not deleted on completion: %s", puzzle3.PlayerSolution)
+		//t.Fatalf("Progress not saved: %s vs %s", puzzle2.PlayerSolution, string(jdata))
+	}
+	puzzleset3, err := ctx.GetPuzzlesetData(PuzzleSetName, uid)
+	if err != nil {
+		t.Fatalf("Couldn't pull puzzleset data: %s", err)
+	}
+	if puzzleset3[0].Paused {
+		t.Fatalf("Completed puzzle is not supposed to be paused!")
+	}
+	if time.Now().Sub(*puzzleset3[0].CompletedOn).Seconds() > 5 {
+		t.Fatalf("Completed time not set correctly!")
+	}
+	if !puzzleset3[0].Completed {
+		t.Fatalf("Puzzle supposed to be completed!")
 	}
 }

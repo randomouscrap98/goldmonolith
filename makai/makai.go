@@ -99,7 +99,7 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 			return
 		}
 		if query.Data != "" {
-			solved, err := mctx.UpdateProgress(query.Pid, uid, query.Data, query.Seconds)
+			solved, err := mctx.UpdateSudokuProgress(query.Pid, uid, query.Data, query.Seconds)
 			if err != nil {
 				result(queryFromError(err))
 			} else {
@@ -110,7 +110,7 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 				}
 			}
 		} else if query.Delete {
-			err = mctx.DeleteProgress(query.Pid, uid)
+			err = mctx.DeleteSudokuProgress(query.Pid, uid)
 			if err != nil {
 				result(queryFromError(err))
 			} else {

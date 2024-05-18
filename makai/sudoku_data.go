@@ -48,7 +48,7 @@ type QueryByPuzzleset struct {
 
 type QueryByPid struct { // this was derived from SDBPuzzle for some reason...
 	PlayerSolution string `json:"playersolution" db:"playersolution"`
-	Seconds        int    `json:"seconds" db:"seconds"`
+	Seconds        int    `json:"seconds" db:"seconds"` // Seconds for PAUSE, not complete
 	Pid            int64  `json:"pid" db:"pid"`
 	Uid            int64  `json:"uid" db:"uid"`
 	Solution       string `json:"solution" db:"solution"`

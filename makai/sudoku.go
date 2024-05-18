@@ -237,7 +237,7 @@ func (mctx *MakaiContext) GetPuzzle(pid int64, uid int64) (*QueryByPid, error) {
 	return &result, nil
 }
 
-func deleteProgressRaw(pid int64, uid int64, db utils.DbLike) error {
+func deleteSudokuProgressRaw(pid int64, uid int64, db utils.DbLike) error {
 	_, err := db.Exec("DELETE FROM inprogress WHERE pid = ? AND uid = ?", pid, uid)
 	if err != nil {
 		return err
@@ -252,7 +252,7 @@ func deleteProgressRaw(pid int64, uid int64, db utils.DbLike) error {
 	return nil
 }
 
-func (mctx *MakaiContext) DeleteProgress(pid int64, uid int64) error {
+func (mctx *MakaiContext) DeleteSudokuProgress(pid int64, uid int64) error {
 	_, err := mctx.GetPuzzle(pid, uid)
 	if err != nil {
 		return err
@@ -262,7 +262,7 @@ func (mctx *MakaiContext) DeleteProgress(pid int64, uid int64) error {
 		return err
 	}
 	defer tx.Rollback()
-	err = deleteProgressRaw(pid, uid, tx)
+	err = deleteSudokuProgressRaw(pid, uid, tx)
 	if err != nil {
 		return err
 	}
@@ -271,7 +271,7 @@ func (mctx *MakaiContext) DeleteProgress(pid int64, uid int64) error {
 }
 
 // Set user progress for given puzzle. Will check for completion; returns true if solved
-func (mctx *MakaiContext) UpdateProgress(pid int64, uid int64, data string, seconds int) (bool, error) {
+func (mctx *MakaiContext) UpdateSudokuProgress(pid int64, uid int64, data string, seconds int) (bool, error) {
 	if seconds == 0 {
 		return false, fmt.Errorf("Must report seconds taken on puzzle so far!")
 	}
@@ -289,7 +289,7 @@ func (mctx *MakaiContext) UpdateProgress(pid int64, uid int64, data string, seco
 		return false, err
 	}
 	defer tx.Rollback()
-	err = deleteProgressRaw(pid, uid, tx)
+	err = deleteSudokuProgressRaw(pid, uid, tx)
 	if err != nil {
 		return false, err
 	}
@@ -297,8 +297,8 @@ func (mctx *MakaiContext) UpdateProgress(pid int64, uid int64, data string, seco
 	solved := false
 	if sdata.Puzzle == puzzle.Solution {
 		_, err := tx.Exec(
-			"INSERT INTO completions(pid, seconds, uid) VALUES (?,?,?)",
-			pid, seconds, uid,
+			"INSERT INTO completions(pid, seconds, uid, completed) VALUES (?,?,?,?)",
+			pid, seconds, uid, time.Now(),
 		)
 		if err != nil {
 			return false, err
@@ -306,8 +306,8 @@ func (mctx *MakaiContext) UpdateProgress(pid int64, uid int64, data string, seco
 		solved = true
 	} else {
 		_, err := tx.Exec(
-			"INSERT INTO inprogress(pid, seconds, uid, puzzle) VALUES (?,?,?,?)",
-			pid, seconds, uid, data,
+			"INSERT INTO inprogress(pid, seconds, uid, puzzle, paused) VALUES (?,?,?,?,?)",
+			pid, seconds, uid, data, time.Now(),
 		)
 		if err != nil {
 			return false, err

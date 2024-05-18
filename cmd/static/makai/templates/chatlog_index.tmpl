@@ -72,9 +72,9 @@ window.onload = function()
         return '<a href="' + href + '" target="_blank">' + href + '</a>';
     });
     {{if .chatlogurl}}
-    results.innerHTML = results.innerHTML.replaceAll(/^([^\-][^\.]*)(\.txt)/gm, function(a, b, c)
+    results.innerHTML = results.innerHTML.replaceAll(/^.*([\d-]+\.txt)/gm, function(a, name)
     {
-        var name = b + c;
+        //var name = b + c;
         var href = encodeURI("{{RawHtml .chatlogurl}}/" + name);
         return '<a href="' + href + '" target="_blank">' + name + '</a>';
     });

@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	Version       = "3.1.2"
+	Version       = "3.1.3"
 	AdminIdKey    = "adminId"
 	IsAdminKey    = "isAdmin"
 	PostStyleKey  = "postStyle"
@@ -260,7 +260,8 @@ func (kctx *KlandContext) GetHandler() (http.Handler, error) {
 				http.Error(w, "Admin tasks not currently reimplemented (url upload)", http.StatusTeapot)
 				return
 			}
-			if kctx.config.ChallengeResponse != "" && r.FormValue("challenge") != kctx.config.ChallengeResponse {
+			// Challenge response only required on open bucket (breaks other things)
+			if r.FormValue("bucket") == "" && kctx.config.ChallengeResponse != "" && r.FormValue("challenge") != kctx.config.ChallengeResponse {
 				http.Error(w, "Failed challenge question", http.StatusBadRequest)
 				return
 			}

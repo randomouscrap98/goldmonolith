@@ -84,6 +84,18 @@ func (mctx *MakaiContext) RegisterSudokuUser(username string, password string) (
 	if exists {
 		return 0, fmt.Errorf("Username not available!")
 	}
+	var usercount int
+	err = mctx.sudokuDb.QueryRow("SELECT count(*) FROM users").Scan(&usercount)
+	if err != nil {
+		return 0, err
+	}
+	if usercount >= mctx.config.SudokuMaxUsers {
+		return 0, &utils.OutOfSpaceError{
+			Allowed: int64(mctx.config.SudokuMaxUsers),
+			Current: int64(usercount),
+			Units:   "users",
+		}
+	}
 	hashraw, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return 0, err

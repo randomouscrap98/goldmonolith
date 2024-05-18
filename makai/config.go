@@ -41,6 +41,7 @@ type Config struct {
 	SudokuSecretKey     string         // Secret key used for signing sudoku sessions
 	SudokuCookieExpire  utils.Duration // How long to keep sudoku cookie
 	SudokuUsernameRegex string         // Allowed username regex
+	SudokuMaxUsers      int            // Maximum allowed sudoku users
 }
 
 func GetDefaultConfig_Toml() string {
@@ -77,6 +78,7 @@ SudokuDbPath="data/makai/sudoku.db"   # Path to the sudoku database (sqlite)
 SudokuSecretKey="%s" # Secret key used for signing sudoku sessions
 SudokuCookieExpire="8766h"            # How long sudoku cookie lasts for
 SudokuUsernameRegex="^[a-zA-Z0-9_-]{3,16}$"  # Allowed username regex
+SudokuMaxUsers=500                    # Maximum allowed sudoku users
 `, time.Now().Format(time.RFC3339), randomHex, secretHex)
 }
 

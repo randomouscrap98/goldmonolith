@@ -134,6 +134,19 @@ func TestNewSudokuUser_FULL(t *testing.T) {
 			t.Fatalf("Missing setting in full user: %s", k)
 		}
 	}
+	// Set the user limit to something very low, then try creating a user again
+	ctx.config.SudokuMaxUsers = 1
+	_, err = ctx.RegisterSudokuUser("toomany", "toomany5")
+	if err == nil {
+		t.Fatalf("Expected error from registration for too many users")
+	}
+	realerr, ok := err.(*utils.OutOfSpaceError)
+	if !ok {
+		t.Fatalf("Error was not of type OutOfSpaceError")
+	}
+	if realerr.Allowed != 1 {
+		t.Fatalf("Allowed should be 1, was %d", realerr.Allowed)
+	}
 }
 
 func TestRetrieveData(t *testing.T) {

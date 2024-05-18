@@ -19,8 +19,8 @@ type MySudokuOption struct {
 
 type PuzzleSetAggregate struct {
 	PuzzleSet string `json:"puzzleset" db:"puzzleset"`
-	UID       int    `json:"uid" db:"uid"`
-	Count     int    `json:"count" db:"count"`
+	UID       int64  `json:"uid" db:"uid"`
+	Count     int64  `json:"count" db:"count"`
 	Public    bool   `json:"public" db:"public"`
 }
 
@@ -35,7 +35,7 @@ type QueryObject struct {
 
 type QueryByPuzzleset struct {
 	Number      int        `json:"number" db:"number"`
-	Pid         int        `json:"pid" db:"pid"`
+	Pid         int64      `json:"pid" db:"pid"`
 	Completed   bool       `json:"completed" db:"completed"`
 	Paused      bool       `json:"paused" db:"paused"`
 	CompletedOn *time.Time `json:"completedOn" db:"completedOn"`
@@ -45,8 +45,8 @@ type QueryByPuzzleset struct {
 type QueryByPid struct { // this was derived from SDBPuzzle for some reason...
 	PlayerSolution string `json:"playersolution" db:"playersolution"`
 	Seconds        int    `json:"seconds" db:"seconds"`
-	Pid            int    `json:"pid" db:"pid"`
-	Uid            int    `json:"uid" db:"uid"`
+	Pid            int64  `json:"pid" db:"pid"`
+	Uid            int64  `json:"uid" db:"uid"`
 	Solution       string `json:"solution" db:"solution"`
 	Puzzle         string `json:"puzzle" db:"puzzle"`
 	PuzzleSet      string `json:"puzzleset" db:"puzzleset"`

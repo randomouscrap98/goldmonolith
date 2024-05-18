@@ -2,6 +2,7 @@ package makai
 
 import (
 	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -109,27 +110,74 @@ func TestNewSudokuUser_FULL(t *testing.T) {
 	if len(fulluser.JsonOptions) == 0 {
 		t.Fatalf("Didn't set json options")
 	}
-	log.Printf("Sudoku user options json: %s", fulluser.JsonOptions)
+	log.Printf("(TEST) Sudoku user options json: %s", fulluser.JsonOptions)
+	// Now we test user settings update
+	newsettings := `{"somegarbage":"nothing"}`
+	err = ctx.UpdateUserSettings(uid, newsettings)
+	if err != nil {
+		t.Fatalf("Couldn't update user settings: %s", err)
+	}
+	// Go lookup the user; our settings should be there verbatim
+	user, err := ctx.GetSudokuUserById(uid)
+	if err != nil {
+		t.Fatalf("Error getting user by id: %s", err)
+	}
+	if user.SettingsJson != newsettings {
+		t.Fatalf("User settings don't match: %s vs %s", user.SettingsJson, newsettings)
+	}
+	// Now even with garbage, our settings shouldn't get messed up on convert
+	fulluser = user.ToUser(true)
+	for k := range defoptions {
+		_, ok := fulluser.Options[k]
+		if !ok {
+			t.Fatalf("Missing setting in full user: %s", k)
+		}
+	}
 }
 
-// import (
-// 	"log"
-// 	"testing"
-// )
-
-// func TestPasswordHashing(t *testing.T) {
-// 	hash, err := passwordHash("mypassword123!")
-// 	if err != nil {
-// 		t.Fatalf("Error from password hashing: %s", err)
-// 	}
-// 	err = passwordVerify("mypassword123!", hash)
-// 	if err != nil {
-// 		t.Fatalf("Error, same password not verified: %s", err)
-// 	}
-// 	err = passwordVerify("mypassword123", hash)
-// 	if err == nil {
-// 		t.Fatalf("Error expected, but different password accepted")
-// 	} else {
-// 		log.Printf("Verify error (expected): %s", err)
-// 	}
-// }
+func TestRetrieveData(t *testing.T) {
+	ctx := newTestContext("retrievesudokudata")
+	sets, err := ctx.GetPuzzleSets(-1)
+	if err != nil {
+		t.Fatalf("Error retrieving puzzle sets: %s", err)
+	}
+	if len(sets) == 0 {
+		t.Fatalf("Didn't get any puzzle sets!")
+	}
+	found := false
+	for _, ps := range sets {
+		if strings.Index(ps.PuzzleSet, "Medium") >= 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("No puzzle sets with 'Medium' in name: %v", sets)
+	}
+	// Now some other data retrieval functions
+	puzzleset, err := ctx.GetPuzzlesetData("Medium Pack 1", -1)
+	if err != nil {
+		t.Fatalf("Couldn't pull puzzleset data: %s", err)
+	}
+	if len(puzzleset) != 9 {
+		t.Fatalf("Expected 9 puzzles, got %d", len(puzzleset))
+	}
+	// Need a user for this test
+	uid := newSudokuUser("someuser", "garbage", t, ctx)
+	puzzle, err := ctx.GetPuzzle(puzzleset[0].Pid, uid)
+	if err != nil {
+		t.Fatalf("Couldn't pull puzzle: %s", err)
+	}
+	if puzzle.PuzzleSet != "Medium Pack 1" {
+		t.Fatalf("Puzzle in wrong set: %s vs Medium Pack 1", puzzle.PuzzleSet)
+	}
+	if len(puzzle.Puzzle) != 81 {
+		t.Fatalf("Puzzle doesn't contain a proper puzzle: %s", puzzle.Puzzle)
+	}
+	if len(puzzle.Solution) != 81 {
+		t.Fatalf("Puzzle doesn't contain a proper solution: %s", puzzle.Solution)
+	}
+	if puzzle.Seconds != 0 {
+		t.Fatalf("Expected 0 seconds on new puzzle, got %d", puzzle.Seconds)
+	}
+}

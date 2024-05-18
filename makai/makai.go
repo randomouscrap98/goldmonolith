@@ -20,6 +20,9 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 	r := chi.NewRouter()
 	var err error
 
+	// --------------------
+	//  Random static only
+	// --------------------
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		data := mctx.GetDefaultData(r)
 		mctx.RunTemplate("index.tmpl", w, data)
@@ -43,6 +46,9 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 		mctx.RunTemplate("tinycomputer_index.tmpl", w, data)
 	})
 
+	// ---------------------
+	//    Sudoku
+	// ---------------------
 	r.Get("/sudoku/", func(w http.ResponseWriter, r *http.Request) {
 		mctx.RenderSudoku("game", w, r)
 	})
@@ -64,7 +70,60 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 		}
 	})
 
+	r.Post("/sudoku/puzzlesave", func(w http.ResponseWriter, r *http.Request) {
+		result := func(result QueryObject) {
+			utils.RespondJson(result, w, nil)
+		}
+		// Before doing anything, might as well make sure they're logged in...
+		uid, err := mctx.GetLoggedInSudokuUid(r)
+		if err != nil || uid <= 0 {
+			if err != nil {
+				log.Printf("Error retrieving logged in sudoku user: %s", err)
+			}
+			result(queryFromErrors("Must be logged in to save puzzles!"))
+			return
+		}
+		err = r.ParseMultipartForm(int64(mctx.config.MaxFormMemory))
+		if err != nil {
+			result(queryFromErrors(fmt.Sprintf("Couldn't parse form: %s", err)))
+			return
+		}
+		var query SudokuSaveQuery
+		err = mctx.decoder.Decode(&query, r.PostForm)
+		if err != nil {
+			result(queryFromErrors(fmt.Sprintf("Couldn't parse form: %s", err)))
+			return
+		}
+		if query.Pid == 0 {
+			result(queryFromErrors("Must provide pid"))
+			return
+		}
+		if query.Data != "" {
+			solved, err := mctx.UpdateProgress(query.Pid, uid, query.Data, query.Seconds)
+			if err != nil {
+				result(queryFromError(err))
+			} else {
+				if solved {
+					result(queryFromResult("completed"))
+				} else {
+					result(queryFromResult("saved"))
+				}
+			}
+		} else if query.Delete {
+			err = mctx.DeleteProgress(query.Pid, uid)
+			if err != nil {
+				result(queryFromError(err))
+			} else {
+				result(queryFromResult(true))
+			}
+		} else {
+			result(queryFromErrors("Invalid parameters! Must provide either data or set delete!"))
+		}
+	})
+
+	// ----------------------------------------------------
 	// These are endpoints which have a heavy limiter set
+	// ----------------------------------------------------
 	r.Group(func(r chi.Router) {
 		r.Use(httprate.LimitByIP(mctx.config.HeavyLimitCount, time.Duration(mctx.config.HeavyLimitInterval)))
 
@@ -179,10 +238,13 @@ func (mctx *MakaiContext) GetHandler() (http.Handler, error) {
 		})
 	})
 
+	// -------------------
 	// Static file path
+	// -------------------
 	err = utils.FileServer(r, "/", mctx.config.StaticFilePath, true)
 	if err != nil {
 		return nil, err
 	}
+
 	return r, nil
 }

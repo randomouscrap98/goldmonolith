@@ -236,3 +236,83 @@ func (mctx *MakaiContext) GetPuzzle(pid int64, uid int64) (*QueryByPid, error) {
 	}
 	return &result, nil
 }
+
+func deleteProgressRaw(pid int64, uid int64, db utils.DbLike) error {
+	_, err := db.Exec("DELETE FROM inprogress WHERE pid = ? AND uid = ?", pid, uid)
+	if err != nil {
+		return err
+	}
+	// affected, err := result.RowsAffected()
+	// if err != nil {
+	// 	return err
+	// }
+	// if affected < 1 {
+	// 	return fmt.Errorf("Couldn't find progress to delete")
+	// }
+	return nil
+}
+
+func (mctx *MakaiContext) DeleteProgress(pid int64, uid int64) error {
+	_, err := mctx.GetPuzzle(pid, uid)
+	if err != nil {
+		return err
+	}
+	tx, err := mctx.sudokuDb.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	err = deleteProgressRaw(pid, uid, tx)
+	if err != nil {
+		return err
+	}
+	tx.Commit()
+	return nil
+}
+
+// Set user progress for given puzzle. Will check for completion; returns true if solved
+func (mctx *MakaiContext) UpdateProgress(pid int64, uid int64, data string, seconds int) (bool, error) {
+	if seconds == 0 {
+		return false, fmt.Errorf("Must report seconds taken on puzzle so far!")
+	}
+	var sdata SudokuSaveData
+	err := json.Unmarshal([]byte(data), &sdata)
+	if err != nil {
+		return false, err
+	}
+	puzzle, err := mctx.GetPuzzle(pid, uid)
+	if err != nil {
+		return false, err
+	}
+	tx, err := mctx.sudokuDb.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	err = deleteProgressRaw(pid, uid, tx)
+	if err != nil {
+		return false, err
+	}
+	//
+	solved := false
+	if sdata.Puzzle == puzzle.Solution {
+		_, err := tx.Exec(
+			"INSERT INTO completions(pid, seconds, uid) VALUES (?,?,?)",
+			pid, seconds, uid,
+		)
+		if err != nil {
+			return false, err
+		}
+		solved = true
+	} else {
+		_, err := tx.Exec(
+			"INSERT INTO inprogress(pid, seconds, uid, puzzle) VALUES (?,?,?,?)",
+			pid, seconds, uid, data,
+		)
+		if err != nil {
+			return false, err
+		}
+	}
+	tx.Commit()
+	return solved, nil
+}

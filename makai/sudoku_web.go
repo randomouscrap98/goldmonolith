@@ -25,6 +25,13 @@ type SudokuLoginQuery struct {
 	Logout    bool   `schema:"logout"`
 }
 
+type SudokuSaveQuery struct {
+	Pid     int64  `schema:"pid"`
+	Data    string `schema:"data"`
+	Delete  bool   `schema:"delete"`
+	Seconds int    `schema:"seconds"`
+}
+
 func (mctx *MakaiContext) RenderSudoku(subtemplate string, w http.ResponseWriter, r *http.Request) {
 	data := mctx.GetDefaultData(r)
 	data["oroot"] = mctx.config.RootPath + "/sudoku"

@@ -10,6 +10,10 @@ type SudokuUserSession struct {
 	UserId int64 `json:"uid"`
 }
 
+type SudokuSaveData struct {
+	Puzzle string `json:"puzzle"`
+}
+
 type MySudokuOption struct {
 	Default   interface{} `json:"default"`
 	Value     interface{} `json:"value"`
